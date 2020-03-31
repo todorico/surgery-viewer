@@ -1,24 +1,23 @@
+macro(enable_clang_tidy toggle)
 
-# Function to register a target for clang-tidy
-function(perform_clang_tidy check_target target)
-    set(includes "$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>")
+    option(ENABLE_CLANG_TIDY "Enable static analysis with clang-tidy" ${toggle})
 
-    add_custom_target(
-        ${check_target}
-        COMMAND
-            ${clang_tidy_EXECUTABLE}
-                -p\t${PROJECT_BINARY_DIR}
-                ${ARGN}
-                -checks=*
-                "$<$<NOT:$<BOOL:${CMAKE_EXPORT_COMPILE_COMMANDS}>>:--\t$<$<BOOL:${includes}>:-I$<JOIN:${includes},\t-I>>>"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-    
-    set_target_properties(${check_target}
-        PROPERTIES
-        FOLDER "Maintenance"
-        EXCLUDE_FROM_DEFAULT_BUILD 1
-    )
-    
-    add_dependencies(${check_target} ${target})
-endfunction()
+    if(ENABLE_CLANG_TIDY)
+
+        find_program(CLANG_TIDY clang-tidy)
+
+        if(CLANG_TIDY)
+
+            message(STATUS "Activated clang-tidy")
+            set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY})
+
+        else()
+
+            message(SEND_ERROR "clang-tidy requested but executable not found")
+            return()
+
+        endif()
+
+    endif()
+
+endmacro()

@@ -15,15 +15,27 @@ conan_add_remote(NAME bincrafters URL
 
 conan_cmake_run(
   REQUIRES
-  ${CONAN_EXTRA_REQUIRES}
-  catch2/2.11.0
-  docopt.cpp/0.6.2
-  fmt/6.0.0
-  spdlog/1.5.0
+  cgal/5.0.1
   OPTIONS
-  ${CONAN_EXTRA_OPTIONS}
+  cgal:with_cgal_qt5=True
+  *:shared=True
+  # cgal:shared=True
   BASIC_SETUP
-  CMAKE_TARGETS # individual targets to link to
+  CMAKE_TARGETS
   BUILD
-  missing)
+  missing
+)
+# conan_cmake_run(
+#   REQUIRES
+#   ${CONAN_EXTRA_REQUIRES}
+#   catch2/2.11.0
+#   docopt.cpp/0.6.2
+#   fmt/6.0.0
+#   spdlog/1.5.0
+#   OPTIONS
+#   ${CONAN_EXTRA_OPTIONS}
+#   BASIC_SETUP
+#   CMAKE_TARGETS # individual targets to link to
+#   BUILD
+#   missing)
 endmacro()

@@ -1,12 +1,10 @@
 // Project
 #include "docopt/docopt.h"
-#include "mesh/draw.hpp"
 #include "mesh/io.hpp"
 
 // CGAL
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Surface_mesh.h>
-#include <CGAL/draw_surface_mesh.h>
 
 // STD
 #include <iostream>
@@ -19,14 +17,15 @@ using Point = Kernel::Point_3;
 using Mesh	= CGAL::Surface_mesh<Point>;
 
 static const char USAGE[] =
-	R"(3D viewer for geometrical file formats (OFF, PLY, OBJ).
+	R"(List geometrical properties from mesh.
 
-    Usage: view (<input-file> | --from=<format>)
+    Usage: prop (<input-file> | --from=<format>)
 
     Options:
-      --from=<format>  Input file <format> expected from stdin.
-      -h --help        Show this screen.
-      --version        Show version.
+      --from=<format> Input file <format> expected from stdin.
+      --list=<E:P>    List specific elements E with property P
+      -h --help       Show this screen.
+      --version       Show version.
 )";
 
 int main(int argc, char const* argv[])
@@ -60,9 +59,40 @@ int main(int argc, char const* argv[])
 		return EXIT_FAILURE;
 	}
 
-	std::cerr << "Displaying mesh...\n";
-	mesh_draw(mesh);
-	// CGAL::draw(mesh);
+	std::cerr << "Printing mesh properties...\n";
+
+	// list
+
+	for(auto p : mesh.properties<Mesh::Vertex_index>())
+		std::cout << p << '\n';
+
+	for(auto p : mesh.properties<Mesh::Edge_index>())
+		std::cout << p << '\n';
+
+	for(auto p : mesh.properties<Mesh::Halfedge_index>())
+		std::cout << p << '\n';
+
+	for(auto p : mesh.properties<Mesh::Face_index>())
+		std::cout << p << '\n';
+
+	// v:color
+
+	// for(auto v : mesh.vertices())
+	// {
+	// 	Mesh::Property_map<Mesh::Vertex_index, CGAL::Color> color;
+	// 	bool exist = false;
+
+	// 	std::tie(color, exist) = mesh.property_map<Mesh::Vertex_index, CGAL::Color>("v:color");
+	// 	if(exist)
+	// 		std::cerr << color[v] << '\n';
+	// }
+
+	// Mesh::Face_range face_range = mesh.faces;
+
+	// for(auto face : mesh.faces())
+	// {
+	// 	face.
+	// }
 
 	return EXIT_SUCCESS;
 }
