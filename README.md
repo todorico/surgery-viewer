@@ -1,25 +1,9 @@
-# Surgery Viewer
+# TODO
 
-Visualiseur optimisé pour la visualisation de maillages provenant de dissections chirurgicales (Écrit en C++ et basé sur CGAL5 et Qt5).
-
-# Dépendances
-
-Sur mon système la commande suivante suffit à satisfaire les dépendances de CGAL
-
-```bash
-sudo apt install libboost-dev 'libqt5*-dev' libgmp-dev libmpfr-dev
-```
-
-# Compilation
-
-```bash
-git clone https://github.com/todorico/surgery-viewer.git
-cd surgery-viewer
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=DebugFast # Compilation en mode debug accelerée
-make -j
-```
-
-**Remarque** : CGAL est très long à compiler, pour accélérer la compilation, ce projet utilise une version de CMake capable de pré-compiler les headers avec la fonction `target_precompile_headers` (CMake 3.16.4+)
-
+Usage: view (<input-file> | --from=<format>) : Utilitaire permettant de visualiser des objets géométriques.
+Usage: prop (<input-file> | --from=<format>) : Utilitaire permettant d'afficher et modifier les propriétés d'un objet géométrique.
+Usage: match <threshold> <input-file>... : Utilitaire permettant de produire un super-maillage contenant seulement les parties suffisament différentes provenants de plusieurs maillage d'entrés.
+Usage: project <input-file1> <input-file2> : Utilitaire permettant de produire un maillage étant la projection du 1er maillage sur le 2eme.
+Usage: rotate (<input-file> | --from=<input-format>) (<output-file> | --to=<output-format>) [options] : Utilitaire permettant d'orienté un maillage
+Usage: translate (<input-file> | --from=<input-format>) (<output-file> | --to=<output-format>) [options] : Utilitaire permettant de translater un maillage
+Usage: manip (<input-file> | --from=<input-format>) (<output-file> | --to=<output-format>) [options] : Utilitaire permettant de manipuler les attributs d'un maillage (couleur, normals, etc...)

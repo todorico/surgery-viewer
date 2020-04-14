@@ -23,7 +23,7 @@ static const char USAGE[] =
 
     Options:
       --from=<format> Input file <format> expected from stdin.
-      --list=<E:P>    List specific elements E with property P
+      --list=<T:P>    List elements of type T with property P
       -h --help       Show this screen.
       --version       Show version.
 )";

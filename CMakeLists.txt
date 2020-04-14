@@ -20,7 +20,7 @@ try_enable_ipo(OFF) # Slowdown linking and give better binaries (Unix only)
 # Interface for build options (link this with target to set c++ standard / compile-time options etc...)
 add_library(project_build_options INTERFACE)
 add_library(project_precompilation_options INTERFACE)
-# target_compile_features(project_build_options INTERFACE cxx_std_14) # force use of c++14
+target_compile_features(project_build_options INTERFACE cxx_std_17) # force use of c++14
 
 # add_definitions("-fdiagnostics-color") # Enable compiler color output
 
@@ -83,7 +83,7 @@ enable_doxygen(OFF)
 # Dependencies
 #
 
-# sudo apt install libboost-dev 'libqt5*-dev' libgmp-dev libmpfr-dev
+# sudo apt install libboost-dev 'libqt5*-dev' libgmp-dev libmpfr-dev libeigen3-dev (for solver) (libceres-dev for solver for smoother)
 
 if(NOT DEFINED CGAL_DIR)
 
@@ -100,6 +100,7 @@ message(STATUS "Using CGAL_DIR at ${CGAL_DIR}")
 
 # Required to use basic_viewer
 add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
+# -DCGAL_PMP_USE_CERES_SOLVER
 # Required for floating operations with CGAL
 add_definitions(-frounding-math)
 # Add uftrace symbol for debugging
@@ -119,6 +120,20 @@ if(NOT Boost_FOUND)
     return()
 endif()
 
-target_link_libraries(project_build_options INTERFACE CGAL::CGAL CGAL::CGAL_Qt5)
+
+find_package(Eigen3 REQUIRED NO_MODULE)
+
+if (NOT TARGET Eigen3::Eigen)
+    message(STATUS "This project requires the Eigen3 library, and will not be compiled.")
+    return()
+else()
+	message(STATUS "Found Eigen3:")
+endif ()
+
+# find_package(Ceres REQUIRED NO_MODULE)
+# include_directories(${CERES_INCLUDE_DIRS})
+# ${CERES_LIBRARIES}
+
+target_link_libraries(project_build_options INTERFACE CGAL::CGAL CGAL::CGAL_Qt5 Eigen3::Eigen)
 
 add_subdirectory(src)

@@ -2,20 +2,14 @@
 #include "docopt/docopt.h"
 #include "mesh/draw.hpp"
 #include "mesh/io.hpp"
-#include "mesh/utils.hpp"
+// #include "mesh/utils.hpp"
 
 // CGAL: Surface-mesh
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/draw_surface_mesh.h>
 
-// CGAL: Projection
-#include <CGAL/K_neighbor_search.h>
 #include <CGAL/Polygon_mesh_processing/compute_normal.h>
-#include <CGAL/Polygon_mesh_processing/smooth_mesh.h>
-#include <CGAL/Search_traits_3.h>
-#include <CGAL/Search_traits_adapter.h>
-#include <CGAL/boost/iterator/counting_iterator.hpp>
 
 // STD
 #include <iostream>
@@ -30,7 +24,14 @@ using Point	 = Kernel::Point_3;
 using Vector = Kernel::Vector_3;
 using Mesh	 = CGAL::Surface_mesh<Point>;
 
-class STDVector_property_map
+#include <CGAL/K_neighbor_search.h>
+#include <CGAL/Search_traits_3.h>
+#include <CGAL/Search_traits_adapter.h>
+#include <CGAL/boost/iterator/counting_iterator.hpp>
+// definition of a non-mutable lvalue property map,
+// with the get function as a friend function to give it
+// access to the private member
+class My_point_property_map
 {
 	const std::vector<Point>& points;
 
@@ -40,22 +41,22 @@ class STDVector_property_map
 	using key_type	 = size_t;
 	using category	 = boost::lvalue_property_map_tag;
 
-	STDVector_property_map(const std::vector<Point>& pts) : points(pts) {}
+	My_point_property_map(const std::vector<Point>& pts) : points(pts) {}
 
 	reference operator[](key_type k) const
 	{
 		return points[k];
 	}
 
-	friend reference get(const STDVector_property_map& ppmap, key_type i)
+	friend reference get(const My_point_property_map& ppmap, key_type i)
 	{
 		return ppmap[i];
 	}
 };
 
 using TreeTraits = CGAL::Search_traits_3<Kernel>;
-using TreeTraitsSTDVectorAdapter =
-	CGAL::Search_traits_adapter<size_t, STDVector_property_map, TreeTraits>;
+using TreeTraitsArrayAdapter =
+	CGAL::Search_traits_adapter<size_t, My_point_property_map, TreeTraits>;
 using TreeTraitsMeshAdapter =
 	CGAL::Search_traits_adapter<Mesh::Vertex_index,
 								Mesh::Property_map<Mesh::Vertex_index, Mesh::Point>, TreeTraits>;
@@ -63,6 +64,11 @@ using TreeTraitsMeshAdapter =
 using Neighbor_search = CGAL::K_neighbor_search<TreeTraitsMeshAdapter>;
 using Distance		  = Neighbor_search::Distance;
 using Tree			  = Neighbor_search::Tree;
+
+Vector normalized(const Vector& v)
+{
+	return v / sqrt(v.squared_length());
+}
 
 Mesh translated(const Mesh& mesh, const Vector& v)
 {
@@ -74,11 +80,6 @@ Mesh translated(const Mesh& mesh, const Vector& v)
 	}
 
 	return res;
-}
-
-Vector normalized(const Vector& v)
-{
-	return v / sqrt(v.squared_length());
 }
 
 CGAL::Color random_color()
@@ -112,6 +113,31 @@ void set_mesh_color(Mesh& mesh, const CGAL::Color& color)
 	{
 		color_map[vi] = color;
 	}
+}
+
+// Print STL containers in a generic way
+
+template <typename T>
+std::ostream& print_container_element(std::ostream& out, const T& elem)
+{
+	return (out << elem << " ");
+}
+
+template <typename T1, typename T2>
+std::ostream& print_container_element(std::ostream& out, const std::pair<T1, T2>& elem)
+{
+	return (out << "{" << elem.first << " " << elem.second << "} ");
+}
+
+template <template <typename, typename...> class TT, typename... Args>
+std::ostream& operator<<(std::ostream& out, TT<Args...> const& container)
+{
+	out << "[ ";
+
+	for(auto& elem : container)
+		print_container_element(out, elem);
+
+	return out << "]";
 }
 
 struct WeightKernel
@@ -177,7 +203,7 @@ std::pair<Point, Vector> APSS(const Point& input_point, const Tree& kd_tree,
 							  const Mesh::Property_map<Mesh::Vertex_index, Vector>& normals,
 							  const WeightKernel& weight_kernel = {WeightKernel::Gaussian,
 																   WeightKernel::Adaptive, 0, 0},
-							  const size_t nb_iterations = 20, const unsigned int K = 20)
+							  const size_t nb_iterations = 10, const unsigned int K = 20)
 {
 	// Initisalisation
 	Vector output_normal;
@@ -259,196 +285,76 @@ std::pair<Point, Vector> APSS(const Point& input_point, const Tree& kd_tree,
 	return {output_point_p, output_normal};
 }
 
-Mesh projection(const Mesh& mesh, const std::vector<Mesh::Vertex_index>& mesh_vrange,
-				const Tree& kd_tree, const Mesh::Property_map<Mesh::Vertex_index, Vector>& normals)
+Mesh projection(const Mesh& mesh, const Tree& kd_tree,
+				const Mesh::Property_map<Mesh::Vertex_index, Vector>& normals)
 {
 	Mesh result = mesh;
 
-	// auto [result_normal, created] = result.add_property_map<Mesh::Vertex_index,
-	// Vector>("v:normal");
+	auto [result_normal, created] = result.add_property_map<Mesh::Vertex_index, Vector>("v:normal");
 
-	// if(created)
-	// std::cerr << "result_map created\n";
+	if(created)
+		std::cerr << "result_map created\n";
 
-	for(auto vi : mesh_vrange)
+	for(auto vi : result.vertices())
 	{
 		auto [point, normal] = APSS(result.point(vi), kd_tree, normals);
 		result.point(vi)	 = point;
-		// result_normal[vi]	 = normal;
+		result_normal[vi]	 = normal;
 	}
 
 	return result;
 }
 
-Mesh projection(const Mesh& mesh1, const std::vector<Mesh::Vertex_index>& mesh1_vrange,
-				const Mesh& mesh2, const Mesh::Vertex_range& mesh2_vrange)
+Mesh projection(const Mesh& mesh1, const Mesh& mesh2)
 {
 	Mesh copy_m2 = mesh2;
 	// Calculating normals
 	auto [mesh2_normal_map, mesh2_created] =
 		copy_m2.add_property_map<Mesh::Vertex_index, Vector>("v:normal");
 
-	for(auto vi : mesh2_vrange)
-	{
-		mesh2_normal_map[vi] = CGAL::Polygon_mesh_processing::compute_vertex_normal(vi, copy_m2);
-	}
-	// CGAL::Polygon_mesh_processing::compute_vertex_normals(copy_m2, mesh2_normal_map);
+	CGAL::Polygon_mesh_processing::compute_vertex_normals(copy_m2, mesh2_normal_map);
 
 	// Kd-tree indexation
-	Tree kd_tree(mesh2_vrange.begin(), mesh2_vrange.end(), Tree::Splitter(),
+	Tree kd_tree(copy_m2.vertices_begin(), copy_m2.vertices_end(), Tree::Splitter(),
 				 TreeTraitsMeshAdapter(copy_m2.points()));
 
-	return projection(mesh1, mesh1_vrange, kd_tree, mesh2_normal_map);
+	return projection(mesh1, kd_tree, mesh2_normal_map);
 }
 
 static const char USAGE[] =
-	R"(Create a new mesh by matching parts of multiple similars meshes.
+	R"(Write to stdout the projection of mesh from mesh-file1 to mesh from mesh-file2.
 
-    Usage: match <threshold> <input-files>...
+    Usage: projection <mesh-file1> <mesh-file2>
 
     Options:
       -h --help      Show this screen.
       --version      Show version.
 )";
 
-// x: red
-// y: green
-// z: blue
-
-// TODO: METTRE LE BON KERNEL dans mesh_utils
-
 int main(int argc, char const* argv[])
 {
 	std::map<std::string, docopt::value> args =
 		docopt::docopt(USAGE, {argv + 1, argv + argc}, true, "v1.0");
 
-	double threshold = 0;
+	Mesh mesh1;
+	std::string mesh_file1 = args.at("<mesh-file1>").asString();
 
-	try
-	{
-		threshold = stod(args.at("<threshold>").asString());
-	}
-	catch(std::invalid_argument& ia)
-	{
-		std::cerr << "Error: <threshold> must be a real number\n";
-		return EXIT_FAILURE;
-	}
-
-	auto input_files = args.at("<input-files>").asStringList();
-	double epsilon	 = 0.006;
-
-	Mesh global_mesh;
-
-	std::cerr << "Reading initial mesh file...\n";
-	if(!read_mesh_from(input_files.front(), global_mesh))
+	std::cerr << "Reading mesh file 1...\n";
+	if(!read_mesh_from(mesh_file1, mesh1))
 		return EXIT_FAILURE;
 
-	std::cerr << "Adding global_mesh color property...\n";
-	auto current_mesh_color = CGAL::Color(0, 0, 255);
-	set_mesh_color(global_mesh, current_mesh_color);
+	Mesh mesh2;
+	std::string mesh_file2 = args.at("<mesh-file2>").asString();
 
-	Mesh visualisation = global_mesh;
-	Mesh old_next	   = global_mesh;
-	std::cerr << "Filtering with threshold = " << threshold << '\n';
-	for(size_t i = 1; i < input_files.size(); ++i)
-	{
-		Mesh current_mesh = global_mesh;
-		// set_mesh_color(current_mesh, current_mesh_color);
+	std::cerr << "Reading mesh file 2...\n";
+	if(!read_mesh_from(mesh_file2, mesh2))
+		return EXIT_FAILURE;
 
-		Mesh next_mesh;
+	Mesh global;
 
-		std::string next_mesh_file = input_files[i];
+	global += mesh1;
+	global += translated(mesh2, Vector(2.1, 0, 0));
+	global += translated(projection(mesh1, mesh2), Vector(1.05, 2.1, 0));
 
-		std::cerr << "Reading next mesh file...\n";
-		if(!read_mesh_from(next_mesh_file, next_mesh))
-			return EXIT_FAILURE;
-
-		std::cerr << "Adding next_mesh color property...\n";
-		auto next_mesh_color = random_color();
-		set_mesh_color(next_mesh, next_mesh_color);
-		visualisation += translated(next_mesh, Vector(i * 2.1, 0, 0));
-
-		std::cerr << "Removing points in Mesh" << i << " that are too far from Mesh" << i + 1
-				  << '\n';
-
-		std::cerr << "Total vertices: " << current_mesh.number_of_vertices() << '\n';
-
-		auto not_transition_region1 =
-			band_stop_filter_dist(current_mesh, next_mesh, epsilon, threshold);
-		Mesh transition1 = current_mesh;
-		filter_out(transition1, not_transition_region1);
-		// // // write_mesh_to("transition_1.off", transition);
-		// // set_mesh_color(transition, color_function(current_mesh_color, next_mesh_color));
-		visualisation += translated(transition1, Vector(-1.05 + i * 2.1, -4.2, 0));
-		// write_mesh_to("current_mesh_transition" + std::to_string(i) + ".off", transition1);
-
-		// other
-		Mesh temp	 = old_next;
-		auto too_far = high_pass_filter_dist(temp, next_mesh, threshold);
-		filter_out(temp, too_far);
-
-		auto high_dist_vertices = high_pass_filter_dist(current_mesh, next_mesh, epsilon);
-		// auto high_dist_vertices = high_pass_filter_dist(current_mesh, next_mesh, threshold);
-
-		filter_out(current_mesh, high_dist_vertices);
-
-		write_mesh_to("current_mesh_" + std::to_string(i) + ".off", current_mesh);
-		// set_mesh_vcolor(transition, nm_vcolor, CGAL::Color(0, 255, 0));
-
-		// current_mesh += transition;
-		// print_state(current_mesh);
-		// }
-
-		std::cerr << "Removing points from Mesh" << i + 1 << " that are too close from Mesh" << i
-				  << '\n';
-		// {
-		std::cerr << "Total vertices: " << next_mesh.number_of_vertices() << '\n';
-
-		auto not_transition_region2 = low_pass_filter_dist(next_mesh, global_mesh, epsilon);
-
-		Mesh transition2 = next_mesh;
-		filter_out(transition2, not_transition_region2);
-
-		// // // write_mesh_to("transition_2.off", transition);
-		visualisation += translated(transition2, Vector(-1.05 + i * 2.1, -4.2, 0));
-		visualisation += translated(transition2, Vector(-1.05 + i * 2.1, -6.3, 0));
-		// write_mesh_to("next_mesh_transition" + std::to_string(i + 1) + ".off", transition2);
-
-		old_next = next_mesh;
-
-		auto low_dist_vertices = low_pass_filter_dist(next_mesh, global_mesh, epsilon);
-		filter_out(next_mesh, low_dist_vertices);
-
-		// write_mesh_to("next_" + std::to_string(i) + ".off", temp);
-
-		// auto proj_trans =
-		// 	projection(transition1, high_pass_filter_dist(transition1, global_mesh, 0), next_mesh,
-		// 			   next_mesh.vertices());
-
-		auto proj_all = projection(temp, high_pass_filter_dist(temp, old_next, epsilon), old_next,
-								   old_next.vertices());
-
-		// write_mesh_to("projection_" + std::to_string(i) + ".off", proj_all);
-
-		// bool success = CGAL::Polygon_mesh_processing::fair(
-		// 	proj_all, band_pass_filter_dist(proj_all, old_next, epsilon - 0.003, epsilon + 0.003));
-		// std::cout << "Fairing : " << (success ? "succeeded" : "failed") << std::endl;
-
-		// write_mesh_to("projection_fair_" + std::to_string(i) + ".off", proj_all);
-
-		visualisation += translated(proj_all, Vector(-1.05 + i * 2.1, -6.3, 0));
-		// visualisation += translated(proj_all, Vector(-1.05 + i * 2.1, -8.4, 0));
-		// set_mesh_color(old_next, color_function(current_mesh_color, next_mesh_color));
-
-		current_mesh_color = next_mesh_color;
-		// current_mesh_file = next_mesh_file;
-		global_mesh = current_mesh;
-		global_mesh += next_mesh;
-
-		visualisation += translated(global_mesh, Vector(-1.05 + i * 2.1, -2.1, 0));
-	}
-
-	std::cerr << "Displaying mesh...\n";
-	// CGAL::draw(global_mesh);
-	mesh_draw(visualisation);
+	mesh_draw(global);
 }

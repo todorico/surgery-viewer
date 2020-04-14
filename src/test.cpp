@@ -30,6 +30,8 @@ using Point	 = Kernel::Point_3;
 using Vector = Kernel::Vector_3;
 using Mesh	 = CGAL::Surface_mesh<Point>;
 
+namespace PMP = CGAL::Polygon_mesh_processing;
+
 class STDVector_property_map
 {
 	const std::vector<Point>& points;
@@ -335,7 +337,7 @@ int main(int argc, char const* argv[])
 	}
 
 	auto input_files = args.at("<input-files>").asStringList();
-	double epsilon	 = 0.006;
+	double epsilon	 = 0.005;
 
 	Mesh global_mesh;
 
@@ -380,19 +382,16 @@ int main(int argc, char const* argv[])
 		// // // write_mesh_to("transition_1.off", transition);
 		// // set_mesh_color(transition, color_function(current_mesh_color, next_mesh_color));
 		visualisation += translated(transition1, Vector(-1.05 + i * 2.1, -4.2, 0));
-		// write_mesh_to("current_mesh_transition" + std::to_string(i) + ".off", transition1);
 
 		// other
 		Mesh temp	 = old_next;
 		auto too_far = high_pass_filter_dist(temp, next_mesh, threshold);
 		filter_out(temp, too_far);
 
-		auto high_dist_vertices = high_pass_filter_dist(current_mesh, next_mesh, epsilon);
+		auto high_dist_vertices = high_pass_filter_dist(current_mesh, next_mesh, epsilon - 0.001);
 		// auto high_dist_vertices = high_pass_filter_dist(current_mesh, next_mesh, threshold);
 
 		filter_out(current_mesh, high_dist_vertices);
-
-		write_mesh_to("current_mesh_" + std::to_string(i) + ".off", current_mesh);
 		// set_mesh_vcolor(transition, nm_vcolor, CGAL::Color(0, 255, 0));
 
 		// current_mesh += transition;
@@ -408,18 +407,14 @@ int main(int argc, char const* argv[])
 
 		Mesh transition2 = next_mesh;
 		filter_out(transition2, not_transition_region2);
-
 		// // // write_mesh_to("transition_2.off", transition);
 		visualisation += translated(transition2, Vector(-1.05 + i * 2.1, -4.2, 0));
 		visualisation += translated(transition2, Vector(-1.05 + i * 2.1, -6.3, 0));
-		// write_mesh_to("next_mesh_transition" + std::to_string(i + 1) + ".off", transition2);
 
 		old_next = next_mesh;
 
 		auto low_dist_vertices = low_pass_filter_dist(next_mesh, global_mesh, epsilon);
 		filter_out(next_mesh, low_dist_vertices);
-
-		// write_mesh_to("next_" + std::to_string(i) + ".off", temp);
 
 		// auto proj_trans =
 		// 	projection(transition1, high_pass_filter_dist(transition1, global_mesh, 0), next_mesh,
@@ -428,13 +423,7 @@ int main(int argc, char const* argv[])
 		auto proj_all = projection(temp, high_pass_filter_dist(temp, old_next, epsilon), old_next,
 								   old_next.vertices());
 
-		// write_mesh_to("projection_" + std::to_string(i) + ".off", proj_all);
-
-		// bool success = CGAL::Polygon_mesh_processing::fair(
-		// 	proj_all, band_pass_filter_dist(proj_all, old_next, epsilon - 0.003, epsilon + 0.003));
-		// std::cout << "Fairing : " << (success ? "succeeded" : "failed") << std::endl;
-
-		// write_mesh_to("projection_fair_" + std::to_string(i) + ".off", proj_all);
+		// PMP::smooth_mesh(proj_all, PMP::parameters::number_of_iterations(10));
 
 		visualisation += translated(proj_all, Vector(-1.05 + i * 2.1, -6.3, 0));
 		// visualisation += translated(proj_all, Vector(-1.05 + i * 2.1, -8.4, 0));
