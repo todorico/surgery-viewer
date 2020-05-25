@@ -307,8 +307,8 @@ static const char USAGE[] =
     Usage: match <threshold> <input-files>...
 
     Options:
-      -h --help      Show this screen.
-      --version      Show version.
+      -h --help      Show this screen
+      --version      Show version
 )";
 
 // x: red

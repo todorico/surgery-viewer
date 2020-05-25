@@ -2,16 +2,14 @@
 #include <CGAL/Complex_2_in_triangulation_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/IO/Color.h>
-// #include <CGAL/IO/OBJ_reader.h>
-// #include <CGAL/IO/PLY_reader.h>
-// #include <CGAL/IO/PLY_writer.h>
-// #include <CGAL/IO/STL_reader.h>
-// #include <CGAL/IO/STL_writer.h>
 #include <CGAL/Implicit_surface_3.h>
+#include <CGAL/K_neighbor_search.h>
 #include <CGAL/Kd_tree.h>
 #include <CGAL/Point_set_3.h>
 #include <CGAL/Point_set_3/IO.h>
 #include <CGAL/Polyhedron_3.h>
+#include <CGAL/Search_traits_3.h>
+#include <CGAL/Search_traits_adapter.h>
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/Surface_mesh/IO.h>

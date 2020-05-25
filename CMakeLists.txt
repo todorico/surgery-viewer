@@ -1,6 +1,6 @@
 # check_ipo_supported need       : cmake_minimum 3.9.6
 # target_precompile_headers need : cmake_minimum 3.16.4
-cmake_minimum_required(VERSION 3.16.4)
+cmake_minimum_required(VERSION 3.16)
 
 project(project_name VERSION 0.1.0 LANGUAGES CXX)
 
@@ -83,12 +83,12 @@ enable_doxygen(OFF)
 # Dependencies
 #
 
-# sudo apt install libboost-dev 'libqt5*-dev' libgmp-dev libmpfr-dev libeigen3-dev (for solver) (libceres-dev for solver for smoother)
+# sudo apt-get install libboost-dev 'libqt5*-dev' libgmp-dev libmpfr-dev libeigen3-dev # for solver (and libceres-dev for smoother)
 
 if(NOT DEFINED CGAL_DIR)
 
-	if(EXISTS ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/Build-RelWithDebInfo)
-    	set(CGAL_DIR ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/Build-RelWithDebInfo) # CGAL shared
+	if(EXISTS ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/build)
+    	set(CGAL_DIR ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/build) # CGAL shared
 	else()
     	set(CGAL_DIR ${CMAKE_SOURCE_DIR}/CGAL-5.0.1) # CGAL header-only
     	message(WARNING "Cannot found build folder in CGAL using compilation in header-only mode")
@@ -102,9 +102,9 @@ message(STATUS "Using CGAL_DIR at ${CGAL_DIR}")
 add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
 # -DCGAL_PMP_USE_CERES_SOLVER
 # Required for floating operations with CGAL
-add_definitions(-frounding-math)
+# add_definitions(-frounding-math)
 # Add uftrace symbol for debugging
-add_definitions(-pg)
+# add_definitions(-pg)
 
 find_package(CGAL REQUIRED COMPONENTS Qt5)
 
@@ -119,7 +119,6 @@ if(NOT Boost_FOUND)
     message(STATUS "This project requires the Boost library, and will not be compiled.")
     return()
 endif()
-
 
 find_package(Eigen3 REQUIRED NO_MODULE)
 
