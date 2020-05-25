@@ -1,9 +1,34 @@
-# Surgery Viewercmake -DCMAKE_BUILD_TYPE=DebugFast ..
+# Surgery Viewer
 
+Viewer écrit en C++, utilisant CGAL5, Qt5 et LibQGLViewer pour optimiser la visualisation de maillages surfaciques multi-couches provenant de dissections chirurgicales.
 
-Visualisateur optimisé pour la visualisation de maillages provenant de dissections chirurgicales (Ecrit en C++ et basé sur CGAL5 et Qt5).
+## Dépendances
 
-# Compilation
+Les templates C++ sont fortement utilisés par la bibliothèque CGAL. Cela lui permet d'être flexible et générique cependant la durée de compilations s'en retrouve fortement affectée.
+
+Pour accélérer la durée de compilation et donc le développement ce projet applique des optimisations de compilations utilisable seulement avec une version de CMake capable de pré-compiler les fichiers d'en-têtes C++.
+
+- CMake 3.16+
+
+La compilation de la version de CGAL5 incluse dans ce projet nécessite les bibliothèques suivantes 
+
+- Boost
+- GMP
+- MPFR
+- Eigen
+
+Le viewer utilise quant à lui Qt5 pour l'affichage fênétré et Assimp pour l'importation de maillages
+
+- Qt5
+- Assimp
+
+Sur les systèmes du type Debian / Ubuntu les dépendances peuvent être installer avec la commande ci-dessous.
+
+```sh
+sudo apt-get install libboost-dev libgmp-dev libmpfr-dev libeigen3-dev 'libqt5*-dev' libassimp-dev
+```
+
+## Compilation
 
 ```sh
 # 1. clone surgery-viewer repository
@@ -19,13 +44,13 @@ make
 
 # 3. build surgery-viewer programs
 
-cd ../../ # Root of surgery-viewer
+cd ../../ # root of surgery-viewer
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=DebugFast ..
 make
 ```
 
-# Programmes
+## Programmes
 
 ```
 Usage: view (<input-file> | --from=<format>) : Utilitaire permettant de visualiser des objets géométriques.
