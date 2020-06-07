@@ -1,8 +1,10 @@
 // Project
 #include "docopt/docopt.h"
-#include "mesh/draw.hpp"
+// #include "mesh/draw.hpp"
+#include "mesh/conversion.hpp"
 #include "mesh/io.hpp"
 #include "mesh/utils.hpp"
+#include "mesh/viewer.hpp"
 
 // CGAL: Surface-mesh
 #include <CGAL/Simple_cartesian.h>
@@ -337,11 +339,12 @@ int main(int argc, char const* argv[])
 	auto input_files = args.at("<input-files>").asStringList();
 	double epsilon	 = 0.006;
 
-	Mesh global_mesh;
-
 	std::cerr << "Reading initial mesh file...\n";
-	if(!read_mesh_from(input_files.front(), global_mesh))
-		return EXIT_FAILURE;
+	Mesh_data data	 = load_mesh_data(input_files.front());
+	Mesh global_mesh = to_surface_mesh<Mesh, Kernel>(data);
+
+	// if(!read_mesh_from(input_files.front(), global_mesh))
+	// 	return EXIT_FAILURE;
 
 	std::cerr << "Adding global_mesh color property...\n";
 	auto current_mesh_color = CGAL::Color(0, 0, 255);
@@ -359,9 +362,12 @@ int main(int argc, char const* argv[])
 
 		std::string next_mesh_file = input_files[i];
 
-		std::cerr << "Reading next mesh file...\n";
-		if(!read_mesh_from(next_mesh_file, next_mesh))
-			return EXIT_FAILURE;
+		data	  = load_mesh_data(next_mesh_file);
+		next_mesh = to_surface_mesh<Mesh, Kernel>(data);
+
+		// std::cerr << "Reading next mesh file...\n";
+		// if(!read_mesh_from(next_mesh_file, next_mesh))
+		// 	return EXIT_FAILURE;
 
 		std::cerr << "Adding next_mesh color property...\n";
 		auto next_mesh_color = random_color();
@@ -449,6 +455,25 @@ int main(int argc, char const* argv[])
 	}
 
 	std::cerr << "Displaying mesh...\n";
+
 	// CGAL::draw(global_mesh);
-	mesh_draw(visualisation);
+
+	// mesh_draw(visualisation);
+
+	// Visualisation
+
+	int qargc			 = 1;
+	const char* qargv[2] = {"surface_mesh_viewer", "\0"};
+
+	QApplication application(qargc, const_cast<char**>(qargv));
+
+	MeshViewer viewer;
+
+	viewer.setWindowTitle("MeshViewer");
+
+	viewer.show(); // Create Opengl Context
+
+	viewer.add(to_mesh_data<Mesh, Kernel>(visualisation));
+
+	return application.exec();
 }

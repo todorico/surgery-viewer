@@ -12,7 +12,7 @@
 // CGAL: Projection
 #include <CGAL/K_neighbor_search.h>
 #include <CGAL/Polygon_mesh_processing/compute_normal.h>
-#include <CGAL/Polygon_mesh_processing/smooth_mesh.h>
+// #include <CGAL/Polygon_mesh_processing/smooth_mesh.h>
 #include <CGAL/Search_traits_3.h>
 #include <CGAL/Search_traits_adapter.h>
 #include <CGAL/boost/iterator/counting_iterator.hpp>
@@ -433,7 +433,6 @@ int main(int argc, char const* argv[])
 		// current_mesh_file = next_mesh_file;
 		global_mesh = current_mesh;
 		global_mesh += next_mesh;
-
 		visualisation += translated(global_mesh, Vector(-1.05 + i * 2.1, -2.1, 0));
 	}
 

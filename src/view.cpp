@@ -1,9 +1,12 @@
 // Project
+#include "mesh/view.hpp"
 #include "docopt/docopt.h"
-#include "mesh/draw.hpp"
-#include "mesh/io.hpp"
+#include "mesh/conversion.hpp"
+#include "mesh/data.hpp"
 
-// CGAL
+// #include "mesh/io.hpp"
+
+// // CGAL
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/draw_surface_mesh.h>
@@ -19,9 +22,9 @@ using Point = Kernel::Point_3;
 using Mesh	= CGAL::Surface_mesh<Point>;
 
 static const char USAGE[] =
-	R"(3D viewer for geometrical file formats (OFF, PLY, OBJ).
+	R"(3D viewer for geometrical file formats (OFF, PLY, OBJ, ...).
 
-    Usage: view (<input-file> | --from=<format>)
+    Usage: view <input-files>...
 
     Options:
       --from=<format>  Input file <format> expected from stdin.
@@ -29,40 +32,37 @@ static const char USAGE[] =
       --version        Show version.
 )";
 
-int main(int argc, char const* argv[])
+int main(int argc, char** argv)
 {
+	// COMMAND PARSING
+
 	std::map<std::string, docopt::value> args =
 		docopt::docopt(USAGE, {argv + 1, argv + argc}, true, "1.0");
 
-	Mesh mesh;
-	auto input_file_value = args.at("<input-file>");
+	auto input_files = args.at("<input-files>").asStringList();
 
-	if(input_file_value)
+	// MESH VISUALISATION
+
+	QApplication application(argc, argv);
+
+	MeshViewer viewer;
+
+	viewer.setWindowTitle("surgery-viewer");
+
+	viewer.show(); // Create Opengl context
+
+	// Mesh_data converted = to_mesh_data<Mesh, Kernel>(mesh);
+	// converted.texture_path.emplace(data.texture_path.value());
+
+	std::cerr << "[DEBUG] Loading meshes...\n";
+
+	for(auto file : input_files)
 	{
-		std::string input_file = input_file_value.asString();
-
-		std::cerr << "Reading mesh from " << input_file << "...\n";
-		if(!read_mesh_from(input_file, mesh))
-			return EXIT_FAILURE;
-	}
-	else
-	{
-		std::string format = args.at("--from").asString();
-
-		std::cerr << "Reading mesh from stdin...\n";
-		if(!read_mesh_from(std::cin, mesh, format))
-			return EXIT_FAILURE;
-	}
-
-	if(mesh.is_empty())
-	{
-		std::cerr << "Error: mesh is empty\n";
-		return EXIT_FAILURE;
+		viewer.add(load_mesh_data(file));
 	}
 
-	std::cerr << "Displaying mesh...\n";
-	mesh_draw(mesh);
+	std::cerr << "[DEBUG] Mesh(es) loaded successfuly !\n";
+
 	// CGAL::draw(mesh);
-
-	return EXIT_SUCCESS;
+	return application.exec();
 }

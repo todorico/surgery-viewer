@@ -4,7 +4,7 @@ file(GLOB MAIN_SOURCES ${CMAKE_CURRENT_LIST_DIR}/*.cpp)
 
 # message(STATUS "SOURCES POUR LES EXECUTABLES ${MAIN_SOURCES}")
 
-add_definitions("-H") # Flag for headers debugging
+# add_definitions("-H") # Flag for headers debugging
 # target_precompile_headers(project_build_options INTERFACE <iostream> <vector> <string> <map> <utility>)
 # add_library(pch cgal_pch.hpp)
 # target_precompile_headers(pch INTERFACE "$<$<COMPILE_LANGUAGE:CXX>:cgal_pch.hpp>")

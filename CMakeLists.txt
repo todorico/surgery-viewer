@@ -1,8 +1,10 @@
 # check_ipo_supported need       : cmake_minimum 3.9.6
-# target_precompile_headers need : cmake_minimum 3.16.4
+# target_precompile_headers need : cmake_minimum 3.16
 cmake_minimum_required(VERSION 3.16)
 
 project(project_name VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake) # usefull for configuration
 
 #
 # Build Options (Possible build type values are cached for ccmake and cmake-gui)
@@ -22,7 +24,7 @@ add_library(project_build_options INTERFACE)
 add_library(project_precompilation_options INTERFACE)
 target_compile_features(project_build_options INTERFACE cxx_std_17) # force use of c++14
 
-# add_definitions("-fdiagnostics-color") # Enable compiler color output
+add_definitions("-fdiagnostics-color") # Enable compiler color output
 
 #
 # Compiler Warnings
@@ -98,7 +100,7 @@ endif()
 
 message(STATUS "Using CGAL_DIR at ${CGAL_DIR}")
 
-# Required to use basic_viewer
+# Required to use CGAL::Basic_qt_viewer
 add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
 # -DCGAL_PMP_USE_CERES_SOLVER
 # Required for floating operations with CGAL
@@ -132,7 +134,9 @@ endif ()
 # find_package(Ceres REQUIRED NO_MODULE)
 # include_directories(${CERES_INCLUDE_DIRS})
 # ${CERES_LIBRARIES}
+include(cmake/ConfigureOpenGL.cmake)
+include(cmake/ConfigureAssimp.cmake)
 
-target_link_libraries(project_build_options INTERFACE CGAL::CGAL CGAL::CGAL_Qt5 Eigen3::Eigen)
+target_link_libraries(project_build_options INTERFACE CGAL::CGAL CGAL::CGAL_Qt5 Eigen3::Eigen ${OPENGL_LIBRARIES} ${assimp_LIBRARIES})
 
 add_subdirectory(src)
