@@ -25,7 +25,7 @@ class MeshViewer : public CGAL::QGLViewer
 
 	std::unique_ptr<QOpenGLShaderProgram> mesh_shader_program;
 
-	std::array<bool, 10> m_draw_mesh;
+	std::array<bool, 12> m_draw_mesh;
 
 	CGAL::qglviewer::Vec orig, dir, selectedPoint;
 };

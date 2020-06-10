@@ -207,28 +207,40 @@ void MeshViewer::keyPressEvent(QKeyEvent* e)
 		displayMessage(QString("draw mesh[5] = %1.").arg(m_draw_mesh[5] ? "true" : "false"));
 		update();
 	}
-	else if((e->key() == ::Qt::Key_Comma) && (modifiers == ::Qt::NoButton))
+	else if((e->key() == ::Qt::Key_Q) && (modifiers == ::Qt::NoButton))
 	{
 		m_draw_mesh[6] = !m_draw_mesh[6];
 		displayMessage(QString("draw mesh[6] = %1.").arg(m_draw_mesh[6] ? "true" : "false"));
 		update();
 	}
-	else if((e->key() == ::Qt::Key_Semicolon) && (modifiers == ::Qt::NoButton))
+	else if((e->key() == ::Qt::Key_S) && (modifiers == ::Qt::NoButton))
 	{
 		m_draw_mesh[7] = !m_draw_mesh[7];
 		displayMessage(QString("draw mesh[7] = %1.").arg(m_draw_mesh[7] ? "true" : "false"));
 		update();
 	}
-	else if((e->key() == ::Qt::Key_Colon) && (modifiers == ::Qt::NoButton))
+	else if((e->key() == ::Qt::Key_D) && (modifiers == ::Qt::NoButton))
 	{
 		m_draw_mesh[8] = !m_draw_mesh[8];
 		displayMessage(QString("draw mesh[8] = %1.").arg(m_draw_mesh[8] ? "true" : "false"));
 		update();
 	}
-	else if((e->key() == ::Qt::Key_Exclam) && (modifiers == ::Qt::NoButton))
+	else if((e->key() == ::Qt::Key_F) && (modifiers == ::Qt::NoButton))
 	{
 		m_draw_mesh[9] = !m_draw_mesh[9];
 		displayMessage(QString("draw mesh[9] = %1.").arg(m_draw_mesh[9] ? "true" : "false"));
+		update();
+	}
+	else if((e->key() == ::Qt::Key_G) && (modifiers == ::Qt::NoButton))
+	{
+		m_draw_mesh[10] = !m_draw_mesh[10];
+		displayMessage(QString("draw mesh[10] = %1.").arg(m_draw_mesh[10] ? "true" : "false"));
+		update();
+	}
+	else if((e->key() == ::Qt::Key_H) && (modifiers == ::Qt::NoButton))
+	{
+		m_draw_mesh[11] = !m_draw_mesh[11];
+		displayMessage(QString("draw mesh[10] = %1.").arg(m_draw_mesh[10] ? "true" : "false"));
 		update();
 	}
 	else

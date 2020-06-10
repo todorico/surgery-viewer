@@ -70,7 +70,7 @@ SurfaceMesh to_surface_mesh(const Mesh_data& mesh_data)
 }
 
 template <class SurfaceMesh, class Kernel>
-Mesh_data to_mesh_data(const SurfaceMesh& surface_mesh)
+Mesh_data to_mesh_data(const SurfaceMesh& surface_mesh, std::optional<std::string> texture_path)
 {
 	using Vertex_index = typename SurfaceMesh::Vertex_index;
 	// using Point_3	   = typename Kernel::Point_3;
@@ -144,7 +144,13 @@ Mesh_data to_mesh_data(const SurfaceMesh& surface_mesh)
 		}
 	}
 
-	return {indices, vertices, normals, uvs};
+	return {indices, vertices, normals, uvs, texture_path};
+}
+
+template <class SurfaceMesh, class Kernel>
+Mesh_data to_mesh_data(const SurfaceMesh& surface_mesh)
+{
+	return to_mesh_data<SurfaceMesh, Kernel>(surface_mesh, {});
 }
 
 // template <class Surface_mesh>
