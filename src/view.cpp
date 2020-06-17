@@ -56,9 +56,21 @@ int main(int argc, char** argv)
 
 	std::cerr << "[DEBUG] Loading meshes...\n";
 
-	for(auto file : input_files)
+	for(size_t i = 0; i < input_files.size(); ++i)
 	{
-		viewer.add(load_mesh_data(file));
+		Mesh_data data = load_mesh_data(input_files[i]);
+
+		// // if(i == 0 && !data.colors.has_value())
+		// 	data.colors.emplace(
+		// 		std::vector<Mesh_data::vec_4f>(data.positions->size(), {1.0, 0.0, 0.0, 1.0}));
+		// // else if(i == 1 && !data.colors.has_value())
+		// 	data.colors.emplace(
+		// 		std::vector<Mesh_data::vec_4f>(data.positions->size(), {0.0, 1.0, 0.0, 1.0}));
+		// // else if(i == 2 && !data.colors.has_value())
+		// 	data.colors.emplace(
+		// 		std::vector<Mesh_data::vec_4f>(data.positions->size(), {0.0, 0.0, 1.0, 1.0}));
+
+		viewer.add(data);
 	}
 
 	std::cerr << "[DEBUG] Mesh(es) loaded successfuly !\n";

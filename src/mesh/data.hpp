@@ -16,12 +16,33 @@
 
 #include <assimp/scene.h>
 
+// STD
+
+#include <array>
+#include <optional>
+
+// struct Mesh_data
+// {
+// 	std::vector<unsigned int> indices;
+// 	std::vector<glm::vec3> vertices;
+// 	std::vector<glm::vec3> normals;
+// 	std::optional<std::vector<glm::vec2>> uvs;
+// 	std::optional<std::string> texture_path;
+// };
+
 struct Mesh_data
 {
-	std::vector<unsigned int> indices;
-	std::vector<glm::vec3> vertices;
-	std::vector<glm::vec3> normals;
-	std::optional<std::vector<glm::vec2>> uvs;
+	using vec_2f = std::array<float, 2>;
+	using vec_3f = std::array<float, 3>;
+	using vec_4f = std::array<float, 4>;
+	using vec_3u = std::array<unsigned int, 3>;
+
+	std::optional<std::vector<vec_3f>> positions;
+	std::optional<std::vector<vec_3f>> normals;
+	std::optional<std::vector<vec_4f>> colors;
+	std::optional<std::vector<vec_2f>> texcoords;
+	std::optional<std::vector<vec_3u>> triangulated_faces; // index of 3 connected vertex
+
 	std::optional<std::string> texture_path;
 };
 

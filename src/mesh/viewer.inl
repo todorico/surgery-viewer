@@ -22,21 +22,203 @@
 #include <limits>
 #include <memory>
 
+// CGAL::qglviewer::Vec bb_min(std::numeric_limits<qreal>::max(),
+
 glm::vec3 bb_min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
 				 std::numeric_limits<float>::max());
 glm::vec3 bb_max(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(),
 				 std::numeric_limits<float>::min());
 
+bool MeshViewer::GLLogErrors()
+{
+	GLenum error = GL_NO_ERROR;
+
+	while((error = glGetError()) != GL_NO_ERROR)
+	{
+		std::cerr << "[ERROR] OpenGL : ";
+		switch(error)
+		{
+			case GL_INVALID_ENUM:
+				std::cerr << "GL_INVALID_ENUM\n";
+				break;
+			case GL_INVALID_VALUE:
+				std::cerr << "GL_INVALID_VALUE\n";
+				break;
+			case GL_INVALID_OPERATION:
+				std::cerr << "GL_INVALID_OPERATION\n";
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				std::cerr << "GL_INVALID_FRAMEBUFFER_OPERATION\n";
+				break;
+			case GL_OUT_OF_MEMORY:
+				std::cerr << "GL_OUT_OF_MEMORY\n";
+				break;
+			case GL_STACK_UNDERFLOW:
+				std::cerr << "GL_STACK_UNDERFLOW\n";
+				break;
+			case GL_STACK_OVERFLOW:
+				std::cerr << "GL_STACK_OVERFLOW\n";
+				break;
+			default:
+				std::cerr << "GL_UNKNOWN_ERROR\n";
+				break;
+		}
+		return true;
+	}
+	return false;
+}
+
+void MeshViewer::initShaders()
+{
+	//////////// SHADER_PROGRAM : COLOR_ONLY
+
+	{
+		std::cerr << "[DEBUG] Vertex shader compilation...\n";
+		QOpenGLShader vshader(QOpenGLShader::Vertex);
+		if(!vshader.compileSourceFile("../src/shader/vertex.glsl"))
+		{
+			std::cerr << "[ERROR] compilation failure\n";
+			std::cerr << vshader.log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		std::cerr << "[DEBUG] Fragment shader compilation...\n";
+		QOpenGLShader fshader(QOpenGLShader::Fragment);
+		if(!fshader.compileSourceFile("../src/shader/fragment_color_only.glsl"))
+		{
+			std::cerr << "[ERROR] compilation failure :\n";
+			std::cerr << fshader.log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		std::cerr << "[DEBUG] Linking shader program...\n";
+		shader_program_color_only.reset(new QOpenGLShaderProgram());
+
+		if(!shader_program_color_only->addShader(&vshader))
+		{
+			std::cerr << "[ERROR] cannot add vertex shader to program :\n";
+			std::cerr << shader_program_color_only->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		if(!shader_program_color_only->addShader(&fshader))
+		{
+			std::cerr << "[ERROR] cannot add fragment shader to program :\n";
+			std::cerr << shader_program_color_only->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		if(!shader_program_color_only->link())
+		{
+			std::cerr << "[ERROR] Shader linking error :\n";
+			std::cerr << shader_program_color_only->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	//////////// SHADER_PROGRAM : TEXTURE_ONLY
+
+	{
+		std::cerr << "[DEBUG] Vertex shader compilation...\n";
+		QOpenGLShader vshader(QOpenGLShader::Vertex);
+		if(!vshader.compileSourceFile("../src/shader/vertex.glsl"))
+		{
+			std::cerr << "[ERROR] compilation failure\n";
+			std::cerr << vshader.log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		std::cerr << "[DEBUG] Fragment shader compilation...\n";
+		QOpenGLShader fshader(QOpenGLShader::Fragment);
+		if(!fshader.compileSourceFile("../src/shader/fragment_texture_only.glsl"))
+		{
+			std::cerr << "[ERROR] compilation failure :\n";
+			std::cerr << fshader.log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		std::cerr << "[DEBUG] Linking shader program...\n";
+		shader_program_texture_only.reset(new QOpenGLShaderProgram());
+
+		if(!shader_program_texture_only->addShader(&vshader))
+		{
+			std::cerr << "[ERROR] cannot add vertex shader to program :\n";
+			std::cerr << shader_program_texture_only->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		if(!shader_program_texture_only->addShader(&fshader))
+		{
+			std::cerr << "[ERROR] cannot add fragment shader to program :\n";
+			std::cerr << shader_program_texture_only->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		if(!shader_program_texture_only->link())
+		{
+			std::cerr << "[ERROR] Shader linking error :\n";
+			std::cerr << shader_program_texture_only->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	//////////// SHADER_PROGRAM : COLOR_AND_TEXTURE
+
+	{
+		std::cerr << "[DEBUG] Vertex shader compilation...\n";
+		QOpenGLShader vshader(QOpenGLShader::Vertex);
+		if(!vshader.compileSourceFile("../src/shader/vertex.glsl"))
+		{
+			std::cerr << "[ERROR] compilation failure\n";
+			std::cerr << vshader.log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		std::cerr << "[DEBUG] Fragment shader compilation...\n";
+		QOpenGLShader fshader(QOpenGLShader::Fragment);
+		if(!fshader.compileSourceFile("../src/shader/fragment_color_and_texture.glsl"))
+		{
+			std::cerr << "[ERROR] compilation failure :\n";
+			std::cerr << fshader.log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		std::cerr << "[DEBUG] Linking shader program...\n";
+		shader_program_color_and_texture.reset(new QOpenGLShaderProgram());
+
+		if(!shader_program_color_and_texture->addShader(&vshader))
+		{
+			std::cerr << "[ERROR] cannot add vertex shader to program :\n";
+			std::cerr << shader_program_color_and_texture->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		if(!shader_program_color_and_texture->addShader(&fshader))
+		{
+			std::cerr << "[ERROR] cannot add fragment shader to program :\n";
+			std::cerr << shader_program_color_and_texture->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+
+		if(!shader_program_color_and_texture->link())
+		{
+			std::cerr << "[ERROR] Shader linking error :\n";
+			std::cerr << shader_program_color_and_texture->log().toStdString() << '\n';
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
 void MeshViewer::init()
 {
 	restoreStateFromFile();
-	initializeOpenGLFunctions();
+	// initializeOpenGLFunctions();
 
 	m_draw_mesh.fill(true);
 	// glLineWidth(m_size_edges);
 	glEnable(GL_POLYGON_OFFSET_FILL);
 	glPolygonOffset(1.f, 1.f);
-	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+	glClearColor(0.7f, 0.7f, 0.7f, 0.0f);
 	glDisable(GL_BLEND);
 	glEnable(GL_LINE_SMOOTH);
 	glDisable(GL_POLYGON_SMOOTH_HINT);
@@ -53,59 +235,28 @@ void MeshViewer::init()
 
 	//////////////////////// SHADERS //////////////////////////
 
-	std::cerr << "[DEBUG] Vertex shader compilation...\n";
-	QOpenGLShader vshader(QOpenGLShader::Vertex);
-	if(!vshader.compileSourceFile("../src/model.vs"))
-	{
-		std::cerr << "[ERROR] compilation failure\n";
-		std::cerr << vshader.log().toStdString() << '\n';
-		exit(EXIT_FAILURE);
-	}
-
-	std::cerr << "[DEBUG] Fragment shader compilation...\n";
-	QOpenGLShader fshader(QOpenGLShader::Fragment);
-	if(!fshader.compileSourceFile("../src/model.fs"))
-	{
-		std::cerr << "[ERROR] compilation failure :\n";
-		std::cerr << fshader.log().toStdString() << '\n';
-		exit(EXIT_FAILURE);
-	}
-
-	std::cerr << "[DEBUG] Linking shader program...\n";
-	mesh_shader_program.reset(new QOpenGLShaderProgram());
-
-	if(!mesh_shader_program->addShader(&vshader))
-	{
-		std::cerr << "[ERROR] cannot add vertex shader to program :\n";
-		std::cerr << mesh_shader_program->log().toStdString() << '\n';
-		exit(EXIT_FAILURE);
-	}
-
-	if(!mesh_shader_program->addShader(&fshader))
-	{
-		std::cerr << "[ERROR] cannot add fragment shader to program :\n";
-		std::cerr << mesh_shader_program->log().toStdString() << '\n';
-		exit(EXIT_FAILURE);
-	}
-
-	if(!mesh_shader_program->link())
-	{
-		std::cerr << "[ERROR] Shader linking error :\n";
-		std::cerr << mesh_shader_program->log().toStdString() << '\n';
-		exit(EXIT_FAILURE);
-	}
+	this->initShaders();
 
 	this->showEntireScene();
 }
 
 void MeshViewer::add(const Mesh_data& md)
 {
-	// Recalcul de la boite enblobante de visualisation
-
-	for(unsigned int i = 0; i < md.vertices.size(); i++)
+	if(!md.positions.has_value())
 	{
-		bb_min = glm::min(bb_min, md.vertices[i]);
-		bb_max = glm::max(bb_max, md.vertices[i]);
+		std::cerr << "[WARNING] cannot view mesh data without positions defined\n";
+		return;
+	}
+
+	// Re-calcul de la boite enblobante de visualisation
+
+	for(unsigned int i = 0; i < md.positions->size(); i++)
+	{
+		auto position =
+			glm::vec3((*md.positions)[i][0], (*md.positions)[i][1], (*md.positions)[i][2]);
+
+		bb_min = glm::min(bb_min, position);
+		bb_max = glm::max(bb_max, position);
 	}
 
 	CGAL::qglviewer::Vec min(static_cast<qreal>(bb_min.x), static_cast<qreal>(bb_min.y),
@@ -119,32 +270,72 @@ void MeshViewer::add(const Mesh_data& md)
 
 	// Allocation des données sur le gpu
 
+	if(md.positions.has_value() && md.texture_path.has_value())
+	{
+		std::cerr << "[DEBUG] Using color and texture shader\n";
+		used_shader_program = shader_program_color_and_texture.get();
+	}
+	else if(md.texture_path.has_value())
+	{
+		std::cerr << "[DEBUG] Using texture only shader\n";
+		used_shader_program = shader_program_texture_only.get();
+	}
+	else
+	{
+		std::cerr << "[DEBUG] Using color only shader\n";
+		used_shader_program = shader_program_color_only.get();
+	}
+
 	meshes.emplace_back(md);
-	meshes[meshes.size() - 1].use(*mesh_shader_program);
+
+	meshes[meshes.size() - 1].use(*used_shader_program);
+	// meshes[meshes.size() - 1].use(*shader_program_texture_only);
 }
 
 void MeshViewer::draw()
 {
-	mesh_shader_program->bind();
-
-	glEnable(GL_DEPTH_TEST);
-
-	GLfloat MVP_raw[16];
-	this->camera()->getModelViewProjectionMatrix(MVP_raw);
-	QMatrix4x4 MVP;
-
-	for(unsigned int i = 0; i < 16; i++)
+	if(used_shader_program)
 	{
-		MVP.data()[i] = MVP_raw[i];
-	}
+		glEnable(GL_DEPTH_TEST);
 
-	mesh_shader_program->setUniformValue("MVP", MVP);
+		GLfloat MVP_raw[16];
+		this->camera()->getModelViewProjectionMatrix(MVP_raw);
+		QMatrix4x4 MVP;
 
-	for(size_t i = 0; i < meshes.size(); ++i)
-	{
-		if(m_draw_mesh[i])
+		for(unsigned int i = 0; i < 16; i++)
 		{
-			meshes[i].draw(*mesh_shader_program);
+			MVP.data()[i] = MVP_raw[i];
+		}
+
+		used_shader_program->bind();
+		used_shader_program->setUniformValue("MVP", MVP);
+
+		if(m_draw_triangles)
+		{
+			if(m_draw_edges)
+				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+			for(size_t i = 0; i < meshes.size(); ++i)
+			{
+				if(m_draw_mesh[i])
+				{
+					meshes[i].draw(*used_shader_program, GL_TRIANGLES);
+				}
+			}
+
+			if(m_draw_edges)
+				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+
+		if(m_draw_points)
+		{
+			for(size_t i = 0; i < meshes.size(); ++i)
+			{
+				if(m_draw_mesh[i])
+				{
+					meshes[i].draw(*used_shader_program, GL_POINTS);
+				}
+			}
 		}
 	}
 }
@@ -240,7 +431,25 @@ void MeshViewer::keyPressEvent(QKeyEvent* e)
 	else if((e->key() == ::Qt::Key_H) && (modifiers == ::Qt::NoButton))
 	{
 		m_draw_mesh[11] = !m_draw_mesh[11];
-		displayMessage(QString("draw mesh[10] = %1.").arg(m_draw_mesh[10] ? "true" : "false"));
+		displayMessage(QString("draw mesh[11] = %1.").arg(m_draw_mesh[11] ? "true" : "false"));
+		update();
+	}
+	else if((e->key() == ::Qt::Key_T) && (modifiers == ::Qt::NoButton))
+	{
+		m_draw_triangles = !m_draw_triangles;
+		displayMessage(QString("draw triangles = %1.").arg(m_draw_triangles ? "true" : "false"));
+		update();
+	}
+	else if((e->key() == ::Qt::Key_E) && (modifiers == ::Qt::NoButton))
+	{
+		m_draw_edges = !m_draw_edges;
+		displayMessage(QString("draw edges = %1.").arg(m_draw_edges ? "true" : "false"));
+		update();
+	}
+	else if((e->key() == ::Qt::Key_P) && (modifiers == ::Qt::NoButton))
+	{
+		m_draw_points = !m_draw_points;
+		displayMessage(QString("draw points = %1.").arg(m_draw_points ? "true" : "false"));
 		update();
 	}
 	else
@@ -248,17 +457,5 @@ void MeshViewer::keyPressEvent(QKeyEvent* e)
 		CGAL::QGLViewer::keyPressEvent(e);
 	}
 }
-
-// bool MeshViewer::GLLogErrors()
-// {
-// 	GLenum error = GL_NO_ERROR;
-
-// 	while((error = glGetError()) != GL_NO_ERROR)
-// 	{
-// 		std::cerr << "[ERROR] OpenGL : " << gluErrorString(error) << '\n';
-// 		return true;
-// 	}
-// 	return false;
-// }
 
 #endif // MESH_VIEWER_INL

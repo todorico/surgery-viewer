@@ -48,14 +48,14 @@ Mesh_data load_mesh_data(const std::string& filename)
 		exit(EXIT_FAILURE);
 	}
 
-	// Currently if texture_path exist, it contains only a name
+	// Currently if texture_path exist, it contains only a name and not a full path
 
 	if(data->texture_path.has_value())
 	{
 		std::string texture_name	  = data->texture_path.value();
 		std::string texture_directory = filename.substr(0, filename.find_last_of('/'));
 
-		// Convert texture_path from name to full path
+		// Add full path to texture name
 
 		data->texture_path = texture_directory + '/' + texture_name;
 	}
@@ -71,77 +71,102 @@ std::optional<Mesh_data> find_first_mesh_data(aiNode* node, const aiScene* scene
 	{
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 
-		// Mesh_data require at least positions normals and faces attributes
-
 		if(!(mesh->HasPositions() && mesh->HasNormals() && mesh->HasFaces()))
 		{
-			std::clog << "[WARNING] ASSIMP MESH : skipped mesh without positions, normals or faces "
-						 "attribute defined\n";
+			std::clog
+				<< "[WARNING] ASSIMP MESH : skipped mesh without positions, normals or faces \n";
 			continue;
 		}
 
-		// Loading positions, normals and faces
+		std::optional<std::vector<Mesh_data::vec_3f>> positions;
 
-		std::vector<glm::vec3> vertices(mesh->mNumVertices);
-		std::vector<glm::vec3> normals(mesh->mNumVertices);
-
-		for(unsigned int k = 0; k < mesh->mNumVertices; ++k)
+		if(mesh->HasPositions())
 		{
-			aiVector3D position = mesh->mVertices[k];
-			aiVector3D normal	= mesh->mNormals[k];
-			vertices[k]			= glm::vec3(position.x, position.y, position.z);
-			normals[k]			= glm::vec3(normal.x, normal.y, normal.z);
-		}
+			positions.emplace(std::vector<Mesh_data::vec_3f>(mesh->mNumVertices));
 
-		std::vector<unsigned int> indices;
-
-		for(unsigned int k = 0; k < mesh->mNumFaces; ++k)
-		{
-			aiFace face = mesh->mFaces[k];
-
-			for(unsigned int j = 0; j < face.mNumIndices; ++j)
+			for(unsigned int k = 0; k < mesh->mNumVertices; ++k)
 			{
-				if(face.mNumIndices != 3)
-				{
-					std::clog << "[WARNING] ASSIMP MESH : this face is not a triangle\n";
-				}
-
-				indices.push_back(face.mIndices[j]);
+				aiVector3D position = mesh->mVertices[k];
+				(*positions)[k]		= {position.x, position.y, position.z};
 			}
 		}
 
-		// Loading texture coords
-		//
-		// TODO : check if texture coord arity is 2 UV(x, y)
+		std::optional<std::vector<Mesh_data::vec_3f>> normals;
+
+		if(mesh->HasNormals())
+		{
+			normals.emplace(std::vector<Mesh_data::vec_3f>(mesh->mNumVertices));
+
+			for(unsigned int k = 0; k < mesh->mNumVertices; ++k)
+			{
+				aiVector3D normal = mesh->mNormals[k];
+				(*normals)[k]	  = {normal.x, normal.y, normal.z};
+			}
+		}
+
+		std::optional<std::vector<Mesh_data::vec_4f>> colors;
+
+		// Cherche uniquement dans le color_set 0
+
+		if(mesh->HasVertexColors(0))
+		{
+			colors.emplace(std::vector<Mesh_data::vec_4f>(mesh->mNumVertices));
+
+			for(unsigned int k = 0; k < mesh->mNumVertices; ++k)
+			{
+				aiColor4D color = mesh->mColors[0][k];
+				(*colors)[k]	= {color.r, color.g, color.b, color.a};
+			}
+		}
+
+		std::optional<std::vector<Mesh_data::vec_2f>> texcoords;
+		std::optional<std::string> texture_name;
+
+		// Cherche uniquement dans le texture_set 0
 
 		if(mesh->HasTextureCoords(0))
 		{
-			auto texture_name =
+			texture_name =
 				find_first_material_texture_name(scene->mMaterials[mesh->mMaterialIndex]);
 
 			if(!texture_name)
 			{
-				std::clog << "[WARNING] ASSIMP MATERIAL : mesh has texture coords but no texture "
-							 "where found\n";
+				std::clog << "[WARNING] ASSIMP MESH : has texture coords but no associate "
+							 "texture path has been found\n";
 			}
-			else
+
+			texcoords.emplace(std::vector<Mesh_data::vec_2f>(mesh->mNumVertices));
+
+			for(unsigned int k = 0; k < mesh->mNumVertices; ++k)
 			{
-				std::vector<glm::vec2> uvs(mesh->mNumVertices);
-
-				for(unsigned int k = 0; k < mesh->mNumVertices; ++k)
-				{
-					aiVector3D uv = mesh->mTextureCoords[0][k];
-					uvs[k]		  = glm::vec2(uv.x, uv.y);
-				}
-
-				std::clog << "[STATUS] ASSIMP : found suitable mesh with texture\n";
-
-				return Mesh_data{indices, vertices, normals, uvs, texture_name};
+				aiVector3D texcoord = mesh->mTextureCoords[0][k];
+				(*texcoords)[k]		= {texcoord.x, texcoord.y};
 			}
 		}
 
-		std::clog << "[STATUS] ASSIMP : found suitable mesh without texture\n";
-		return Mesh_data{indices, vertices, normals, {}, {}};
+		std::optional<std::vector<Mesh_data::vec_3u>>
+			triangulated_faces; // index of 3 connected vertex
+
+		if(mesh->HasFaces())
+		{
+			triangulated_faces.emplace(std::vector<Mesh_data::vec_3u>(mesh->mNumFaces));
+
+			for(unsigned int k = 0; k < mesh->mNumFaces; ++k)
+			{
+				aiFace face = mesh->mFaces[k];
+
+				if(face.mNumIndices != 3)
+				{
+					std::clog << "[WARNING] ASSIMP MESH : skipped face " << k
+							  << " that is not a triangle\n";
+					continue;
+				}
+
+				(*triangulated_faces)[k] = {face.mIndices[0], face.mIndices[1], face.mIndices[2]};
+			}
+		}
+
+		return Mesh_data{positions, normals, colors, texcoords, triangulated_faces, texture_name};
 	}
 
 	// Process children nodes if no mesh where found
@@ -165,14 +190,14 @@ std::optional<std::string> find_first_material_texture_name(aiMaterial* mat)
 			aiString str;
 			mat->GetTexture(t, i, &str);
 
-			std::clog << "[STATUS] ASSIMP MATERIAL texture of type " << t
-					  << " found : " << str.C_Str() << '\n';
+			std::clog << "[STATUS] ASSIMP MATERIAL : texture of type " << t << " found ("
+					  << str.C_Str() << ")\n";
 
 			return str.C_Str();
 		}
 	}
 
-	std::clog << "[STATUS] ASSIMP MATERIAL no texture found\n";
+	std::clog << "[STATUS] ASSIMP MATERIAL : no texture found\n";
 
 	return {};
 }

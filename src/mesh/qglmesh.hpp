@@ -19,15 +19,16 @@ class QGLMesh
 {
   public:
 	std::unique_ptr<QOpenGLVertexArrayObject> vao;
+	std::unique_ptr<QOpenGLTexture> texture;
 
-	QOpenGLBuffer vertices;
+	QOpenGLBuffer positions;
 	QOpenGLBuffer normals;
-	QOpenGLBuffer indices;
+	QOpenGLBuffer colors;
+	QOpenGLBuffer texcoords;
+	QOpenGLBuffer triangulated_faces;
 
 	// FIX QOpenGLTexture::destroy error : called without à current context
 	// must be caused because unique_ptr automaticaly destroy texture after context is destroyed.
-	std::unique_ptr<QOpenGLTexture> texture;
-	std::optional<QOpenGLBuffer> uvs;
 
 	QGLMesh();
 	QGLMesh(const Mesh_data& data);
@@ -40,7 +41,11 @@ class QGLMesh
 	bool use(QOpenGLShaderProgram& shader_program);
 
 	// program must be bound before draw
-	void draw(QOpenGLShaderProgram& shader_program);
+	void draw(QOpenGLShaderProgram& shader_program, GLenum mode = GL_TRIANGLES);
+
+  protected:
+	size_t m_number_of_vertices;
+	size_t m_number_of_faces;
 };
 
 #include "qglmesh.inl"

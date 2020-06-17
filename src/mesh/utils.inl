@@ -14,6 +14,11 @@
 #include <limits>
 #include <vector>
 
+// CGAL::Kernel_traits< T >
+// Point / size_type
+// CGAL::Surface_mesh< P >::Vertex_range
+// BidirectionalRange
+
 template <class P>
 std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
 	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,

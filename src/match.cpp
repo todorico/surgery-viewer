@@ -353,12 +353,22 @@ int main(int argc, char const* argv[])
 		{
 			Mesh_data data = load_mesh_data(input_files[i]);
 
-			meshes[i]	= to_surface_mesh<Mesh, Kernel>(data);
+			meshes[i] = to_surface_mesh<Mesh>(data);
+
+			if(i == 0)
+				set_mesh_color(meshes[i], CGAL::Color(200, 0, 0));
+			else if(i == 1)
+				set_mesh_color(meshes[i], CGAL::Color(0, 200, 0));
+			else
+				set_mesh_color(meshes[i], random_color());
+
 			textures[i] = data.texture_path;
 		}
 	}
 
 	std::vector<Mesh> graft_selection(input_files.size() - 1);
+	std::vector<Mesh> graft_selection_transition(input_files.size() - 1);
+
 	std::vector<Mesh> graft_basis(input_files.size() - 1);
 	std::vector<Mesh> graft_basis_with_transition(input_files.size() - 1);
 	std::vector<Mesh> graft_basis_with_transition_projected(input_files.size() - 1);
@@ -374,33 +384,33 @@ int main(int argc, char const* argv[])
 	// Mesh_data data	 = load_mesh_data(input_files.front());
 	// Mesh global_mesh = to_surface_mesh<Mesh, Kernel>(data);
 
-	Mesh global_mesh = meshes[0];
+	Mesh reconstruction = meshes[0];
+
 	// if(!read_mesh_from(input_files.front(), global_mesh))
 	// 	return EXIT_FAILURE;
 
-	std::cerr << "Adding global_mesh color property...\n";
-	auto current_mesh_color = CGAL::Color(0, 0, 255);
-	set_mesh_color(global_mesh, current_mesh_color);
+	// std::cerr << "Adding global_mesh color property...\n";
+	// auto current_mesh_color = CGAL::Color(0, 0, 255);
+	// set_mesh_color(global_mesh, current_mesh_color);
 
-	Mesh visualisation = global_mesh;
-	Mesh old_next	   = global_mesh;
+	// Mesh visualisation = global_mesh;
+	// Mesh old_next	   = global_mesh;
 	std::cerr << "Filtering with threshold = " << threshold << '\n';
 
 	for(size_t i = 1; i < input_files.size(); ++i)
 	{
-		Mesh current_mesh = global_mesh;
+		Mesh current_mesh = reconstruction;
 		// set_mesh_color(current_mesh, current_mesh_color);
 
 		graft_basis[i - 1]							 = current_mesh;
 		graft_basis_with_transition[i - 1]			 = current_mesh;
 		graft_basis_with_transition_projected[i - 1] = current_mesh;
 
-		Mesh next_mesh		   = meshes[i];
-		graft_selection[i - 1] = next_mesh;
+		Mesh next_mesh					  = meshes[i];
+		graft_selection[i - 1]			  = next_mesh;
+		graft_selection_transition[i - 1] = next_mesh;
 
 		// std::cerr << "Adding next_mesh color property...\n";
-		// auto next_mesh_color = random_color();
-		// set_mesh_color(next_mesh, next_mesh_color);
 		// visualisation += translated(next_mesh, Vector(i * 2.1, 0, 0));
 
 		std::cerr << "Removing points in Mesh" << i << " that are too far from Mesh" << i + 1
@@ -466,6 +476,14 @@ int main(int argc, char const* argv[])
 
 		filter_out(graft_selection[i - 1], close_points_from_current_mesh);
 
+		///////// GRAFT_SELECTION_TRANSITION (what we projection graft_basis_transition on)
+
+		auto distants_points_less_epsilon_from_current_mesh =
+			band_stop_filter_dist(graft_selection_transition[i - 1], current_mesh,
+								  threshold - epsilon, threshold + epsilon);
+
+		filter_out(graft_selection_transition[i - 1],
+				   distants_points_less_epsilon_from_current_mesh);
 		// auto not_transition_region2 = low_pass_filter_dist(next_mesh, global_mesh, epsilon);
 
 		// Mesh transition2 = next_mesh;
@@ -500,7 +518,7 @@ int main(int argc, char const* argv[])
 		auto projected_graft = projection(
 			graft_basis_with_transition[i - 1],
 			high_pass_filter_dist(graft_basis_with_transition[i - 1], next_mesh, proj_start),
-			graft_selection[i - 1], graft_selection[i - 1].vertices());
+			graft_selection_transition[i - 1], graft_selection_transition[i - 1].vertices());
 
 		graft_basis_with_transition_projected[i - 1] = projected_graft;
 
@@ -527,8 +545,8 @@ int main(int argc, char const* argv[])
 
 		//////////// GLOBAL_MESH (FUSION graft_basis_with_transition_projected and graft_selection)
 
-		global_mesh = graft_basis_with_transition_projected[i - 1];
-		global_mesh += graft_selection[i - 1];
+		reconstruction = graft_basis_with_transition_projected[i - 1];
+		reconstruction += graft_selection[i - 1];
 
 		// visualisation += translated(global_mesh, Vector(-1.05 + i * 2.1, -2.1, 0));
 	}
@@ -561,13 +579,13 @@ int main(int argc, char const* argv[])
 		/// 5 : zone à gardé
 		/// 2 : base de grèfe + transition projeté sur original 1
 
-		viewer.add(to_mesh_data<Mesh, Kernel>(meshes[i], textures[i]));
-		viewer.add(to_mesh_data<Mesh, Kernel>(meshes[i + 1], textures[i + 1]));
-		viewer.add(to_mesh_data<Mesh, Kernel>(graft_basis[i], textures[i]));
-		viewer.add(to_mesh_data<Mesh, Kernel>(graft_selection[i], textures[i + 1]));
-		viewer.add(to_mesh_data<Mesh, Kernel>(graft_basis_with_transition[i], textures[i]));
-		viewer.add(
-			to_mesh_data<Mesh, Kernel>(graft_basis_with_transition_projected[i], textures[i]));
+		viewer.add(to_mesh_data<Mesh>(meshes[i], textures[i]));
+		viewer.add(to_mesh_data<Mesh>(meshes[i + 1], textures[i + 1]));
+		viewer.add(to_mesh_data<Mesh>(graft_basis[i], textures[i]));
+		viewer.add(to_mesh_data<Mesh>(graft_selection[i], textures[i + 1]));
+		viewer.add(to_mesh_data<Mesh>(graft_basis_with_transition_projected[i], textures[i]));
+		viewer.add(to_mesh_data<Mesh>(graft_selection_transition[i], textures[i + 1]));
+		// viewer.add(to_mesh_data<Mesh>(graft_basis_with_transition[i], textures[i]));
 
 		// viewer.add(to_mesh_data<Mesh, Kernel>(reconstruction[i]));
 	}

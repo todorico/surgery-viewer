@@ -4,8 +4,9 @@
 #include "qglmesh.hpp"
 
 QGLMesh::QGLMesh()
-	: vao(new QOpenGLVertexArrayObject()), vertices(QOpenGLBuffer::VertexBuffer),
-	  normals(QOpenGLBuffer::VertexBuffer), indices(QOpenGLBuffer::IndexBuffer)
+	: vao(new QOpenGLVertexArrayObject()), texture(), positions(QOpenGLBuffer::VertexBuffer),
+	  normals(QOpenGLBuffer::VertexBuffer), colors(QOpenGLBuffer::VertexBuffer),
+	  texcoords(QOpenGLBuffer::VertexBuffer), triangulated_faces(QOpenGLBuffer::IndexBuffer)
 {
 }
 
@@ -26,42 +27,81 @@ void QGLMesh::allocate(const Mesh_data& data)
 	vao->create();
 	vao->bind();
 	{
-		std::cerr << "[DEBUG] Allocating vertices buffer...\n";
+		if(data.positions.has_value())
+		{
+			m_number_of_vertices = data.positions->size();
 
-		vertices.create();
-		vertices.bind();
-		vertices.setUsagePattern(QOpenGLBuffer::StaticDraw);
-		vertices.allocate(data.vertices.data(),
-						  data.vertices.size() * sizeof(decltype(data.vertices)::value_type));
+			std::cerr << "[DEBUG] Allocating buffer of " << m_number_of_vertices
+					  << " positions...\n";
 
-		std::cerr << "[DEBUG] Allocating normals buffer...\n";
+			positions.create();
+			positions.bind();
+			positions.setUsagePattern(QOpenGLBuffer::StaticDraw);
+			positions.allocate(
+				data.positions->data(),
+				static_cast<int>(data.positions->size() *
+								 sizeof(decltype(data.positions)::value_type::value_type)));
+		}
+		else
+		{
+			std::cerr << "[WARNING] No positions buffer allocated\n";
+		}
 
-		normals.create();
-		normals.bind();
-		normals.setUsagePattern(QOpenGLBuffer::StaticDraw);
-		normals.allocate(data.normals.data(),
-						 data.normals.size() * sizeof(decltype(data.normals)::value_type));
+		if(data.normals.has_value())
+		{
+			std::cerr << "[DEBUG] Allocating buffer of " << data.normals->size() << " normals...\n";
 
-		std::cerr << "[DEBUG] Allocating indices buffer...\n";
+			normals.create();
+			normals.bind();
+			normals.setUsagePattern(QOpenGLBuffer::StaticDraw);
+			normals.allocate(
+				data.normals->data(),
+				static_cast<int>(data.normals->size() *
+								 sizeof(decltype(data.normals)::value_type::value_type)));
+		}
+		else
+		{
+			std::cerr << "[WARNING] No normals buffer allocated\n";
+		}
 
-		indices.create();
-		indices.bind();
-		indices.allocate(data.indices.data(),
-						 data.indices.size() * sizeof(decltype(data.indices)::value_type));
+		if(data.colors.has_value())
+		{
+			std::cerr << "[DEBUG] Allocating buffer of " << data.colors->size() << " colors...\n";
+
+			colors.create();
+			colors.bind();
+			colors.setUsagePattern(QOpenGLBuffer::StaticDraw);
+			colors.allocate(
+				data.colors->data(),
+				static_cast<int>(data.colors->size() *
+								 sizeof(decltype(data.colors)::value_type::value_type)));
+		}
+		else
+		{
+			std::cerr << "[WARNING] No colors buffer allocated\n";
+		}
+
+		if(data.texcoords.has_value())
+		{
+			std::cerr << "[DEBUG] Allocating buffer of " << data.texcoords->size()
+					  << " texcoords...\n";
+
+			texcoords.create();
+			texcoords.bind();
+			texcoords.setUsagePattern(QOpenGLBuffer::StaticDraw);
+			texcoords.allocate(
+				data.texcoords->data(),
+				static_cast<int>(data.texcoords->size() *
+								 sizeof(decltype(data.texcoords)::value_type::value_type)));
+		}
+		else
+		{
+			std::cerr << "[WARNING] No texcoords buffer allocated\n";
+		}
 
 		if(data.texture_path.has_value())
 		{
-			uvs = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
-
-			std::cerr << "[DEBUG] Allocating uvs buffer...\n";
-
-			uvs->create();
-			uvs->bind();
-			uvs->setUsagePattern(QOpenGLBuffer::StaticDraw);
-			uvs->allocate(data.uvs->data(),
-						  data.uvs->size() * sizeof(decltype(data.uvs)::value_type::value_type));
-
-			std::cerr << "[DEBUG] Loading texture from " << data.texture_path.value() << "\n";
+			std::cerr << "[DEBUG] Loading texture from " << data.texture_path.value() << "...\n";
 
 			texture.reset(new QOpenGLTexture(QImage(data.texture_path->c_str()).mirrored()));
 
@@ -69,6 +109,30 @@ void QGLMesh::allocate(const Mesh_data& data)
 			texture->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
 			texture->setMagnificationFilter(QOpenGLTexture::Linear);
 			texture->setWrapMode(QOpenGLTexture::Repeat);
+		}
+		else
+		{
+			std::cerr << "[WARNING] No texture allocated\n";
+		}
+
+		if(data.triangulated_faces.has_value())
+		{
+			m_number_of_faces = data.triangulated_faces->size();
+
+			std::cerr << "[DEBUG] Allocating buffer of " << m_number_of_faces << " faces...\n";
+
+			triangulated_faces.create();
+			triangulated_faces.bind();
+			// triangulated_faces.setUsagePattern(QOpenGLBuffer::StaticDraw);
+			triangulated_faces.allocate(
+				data.triangulated_faces->data(),
+				static_cast<int>(
+					data.triangulated_faces->size() *
+					sizeof(decltype(data.triangulated_faces)::value_type::value_type)));
+		}
+		else
+		{
+			std::cerr << "[WARNING] No triangulated_faces buffer allocated\n";
 		}
 	}
 	vao->release();
@@ -80,25 +144,36 @@ bool QGLMesh::use(QOpenGLShaderProgram& shader_program)
 	{
 		vao->bind();
 		{
-			if(vertices.isCreated())
+			if(positions.isCreated())
 			{
-				vertices.bind();
-				shader_program.enableAttributeArray("aPos");
-				shader_program.setAttributeBuffer("aPos", GL_FLOAT, 0, 3);
+				std::cerr << "[DEBUG] Attribute : position enabled\n";
+				positions.bind();
+				shader_program.enableAttributeArray("v_position");
+				shader_program.setAttributeBuffer("v_position", GL_FLOAT, 0, 3);
 			}
 
 			if(normals.isCreated())
 			{
+				std::cerr << "[DEBUG] Attribute : normal enabled\n";
 				normals.bind();
-				shader_program.enableAttributeArray("aNormal");
-				shader_program.setAttributeBuffer("aNormal", GL_FLOAT, 0, 3);
+				shader_program.enableAttributeArray("v_normal");
+				shader_program.setAttributeBuffer("v_normal", GL_FLOAT, 0, 3);
 			}
 
-			if(uvs.has_value() && uvs->isCreated())
+			if(colors.isCreated())
 			{
-				uvs->bind();
-				shader_program.enableAttributeArray("aTexCoord");
-				shader_program.setAttributeBuffer("aTexCoord", GL_FLOAT, 0, 2);
+				std::cerr << "[DEBUG] Attribute : color enabled\n";
+				colors.bind();
+				shader_program.enableAttributeArray("v_color");
+				shader_program.setAttributeBuffer("v_color", GL_FLOAT, 0, 4);
+			}
+
+			if(texcoords.isCreated())
+			{
+				std::cerr << "[DEBUG] Attribute : texcoords enabled\n";
+				texcoords.bind();
+				shader_program.enableAttributeArray("v_texcoord");
+				shader_program.setAttributeBuffer("v_texcoord", GL_FLOAT, 0, 2);
 			}
 		}
 		vao->release();
@@ -110,17 +185,24 @@ bool QGLMesh::use(QOpenGLShaderProgram& shader_program)
 	}
 }
 
-void QGLMesh::draw(QOpenGLShaderProgram& shader_program)
+void QGLMesh::draw(QOpenGLShaderProgram& shader_program, GLenum mode)
 {
 	if(texture)
 	{
-		shader_program.setUniformValue("Texture", texture->textureId());
+		shader_program.setUniformValue("f_texture", texture->textureId());
 		texture->bind(texture->textureId());
 	}
 
 	vao->bind();
 	{
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+		if(triangulated_faces.isCreated())
+		{
+			glDrawElements(mode, static_cast<int>(m_number_of_faces * 3), GL_UNSIGNED_INT, 0);
+		}
+		else
+		{
+			glDrawArrays(GL_POINTS, 0, static_cast<int>(m_number_of_vertices));
+		}
 	}
 	vao->release();
 }

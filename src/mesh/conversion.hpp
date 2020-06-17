@@ -7,157 +7,259 @@
 
 // CGAL
 
+#include <CGAL/IO/Color.h>
+#include <CGAL/Kernel_traits.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/boost/graph/iterator.h>
 
-template <class SurfaceMesh, class Kernel>
+// STD
+
+#include <array>
+
+template <class SurfaceMesh>
 SurfaceMesh to_surface_mesh(const Mesh_data& mesh_data)
 {
-	SurfaceMesh mesh;
+	// using SurfaceMesh = typename CGAL::Surface_mesh<Point>;
+	using point_type = typename SurfaceMesh::Point;
+	using size_type	 = typename SurfaceMesh::size_type;
+
+	using Kernel = typename CGAL::Kernel_traits<point_type>::Kernel;
 
 	using Vertex_index = typename SurfaceMesh::Vertex_index;
-	using Point_3	   = typename Kernel::Point_3;
-	using Vector_2	   = typename Kernel::Vector_2;
 	using Vector_3	   = typename Kernel::Vector_3;
+	using Vector_2	   = typename Kernel::Vector_2;
+	using Color		   = CGAL::Color;
 
-	// Copie des positions
+	SurfaceMesh mesh;
 
-	for(size_t i = 0; i < mesh_data.vertices.size(); ++i)
+	if(mesh_data.positions.has_value())
 	{
-		auto position = mesh_data.vertices[i];
-		mesh.add_vertex(Point_3(position.x, position.y, position.z));
-	}
-
-	// Copie des normals
-
-	auto [normal_map, normal_created] =
-		mesh.template add_property_map<Vertex_index, Vector_3>("v:normal");
-
-	for(size_t i = 0; i < mesh_data.normals.size(); ++i)
-	{
-		auto normal	   = mesh_data.normals[i];
-		Vertex_index v = static_cast<Vertex_index>(i);
-		normal_map[v]  = Vector_3(normal.x, normal.y, normal.z);
-	}
-
-	// Copie des coordonnées de textures si existantes
-
-	if(mesh_data.texture_path.has_value())
-	{
-		auto [texcoord_map, texcoord_created] =
-			mesh.template add_property_map<Vertex_index, Vector_2>("v:texcoord");
-
-		for(size_t i = 0; i < mesh_data.uvs->size(); ++i)
+		for(size_t i = 0; i < mesh_data.positions->size(); ++i)
 		{
-			auto texcoord	= (*mesh_data.uvs)[i];
-			Vertex_index v	= static_cast<Vertex_index>(i);
-			texcoord_map[v] = Vector_2(texcoord.x, texcoord.y);
+			auto position = (*mesh_data.positions)[i];
+			mesh.add_vertex({position[0], position[1], position[2]});
 		}
 	}
 
-	// Copie des faces triangulé
-
-	for(size_t i = 2; i < mesh_data.indices.size(); i += 3)
+	if(mesh_data.normals.has_value())
 	{
-		Vertex_index a = static_cast<Vertex_index>(mesh_data.indices[i - 2]);
-		Vertex_index b = static_cast<Vertex_index>(mesh_data.indices[i - 1]);
-		Vertex_index c = static_cast<Vertex_index>(mesh_data.indices[i]);
+		auto [normal_map, normal_map_created] =
+			mesh.template add_property_map<Vertex_index, Vector_3>("v:normal");
 
-		mesh.add_face(a, b, c);
+		for(size_type i = 0; i < mesh_data.normals->size(); ++i)
+		{
+			auto normal	   = (*mesh_data.normals)[i];
+			Vertex_index v = static_cast<Vertex_index>(i);
+			normal_map[v]  = {normal[0], normal[1], normal[2]};
+		}
+	}
+	else
+	{
+		std::clog << "[STATUS] to_surface_mesh : data contains no vertex normals\n";
+	}
+
+	if(mesh_data.colors.has_value())
+	{
+		auto [color_map, color_map_created] =
+			mesh.template add_property_map<Vertex_index, Color>("v:color");
+
+		for(size_type i = 0; i < mesh_data.colors->size(); ++i)
+		{
+			auto color	   = (*mesh_data.colors)[i];
+			Vertex_index v = static_cast<Vertex_index>(i);
+			color_map[v]   = {color[0] * 255, color[1] * 255, color[2] * 255, color[3] * 255};
+		}
+	}
+	else
+	{
+		std::clog << "[STATUS] to_surface_mesh : data contains no vertex colors\n";
+	}
+
+	if(mesh_data.texcoords.has_value())
+	{
+		auto [texcoord_map, texcoord_map_created] =
+			mesh.template add_property_map<Vertex_index, Vector_2>("v:texcoord");
+
+		for(size_type i = 0; i < mesh_data.texcoords->size(); ++i)
+		{
+			auto texcoord	= (*mesh_data.texcoords)[i];
+			Vertex_index v	= static_cast<Vertex_index>(i);
+			texcoord_map[v] = Vector_2(texcoord[0], texcoord[1]);
+		}
+	}
+	else
+	{
+		std::clog << "[STATUS] to_surface_mesh : data contains no texcoords\n";
+	}
+
+	if(mesh_data.triangulated_faces.has_value())
+	{
+		for(size_type i = 0; i < mesh_data.triangulated_faces->size(); ++i)
+		{
+			Vertex_index a = static_cast<Vertex_index>((*mesh_data.triangulated_faces)[i][0]);
+			Vertex_index b = static_cast<Vertex_index>((*mesh_data.triangulated_faces)[i][1]);
+			Vertex_index c = static_cast<Vertex_index>((*mesh_data.triangulated_faces)[i][2]);
+
+			mesh.add_face(a, b, c);
+		}
+	}
+	else
+	{
+		std::clog << "[STATUS] to_surface_mesh : data contains no faces\n";
 	}
 
 	return mesh;
 }
 
-template <class SurfaceMesh, class Kernel>
-Mesh_data to_mesh_data(const SurfaceMesh& surface_mesh, std::optional<std::string> texture_path)
+template <class SurfaceMesh>
+Mesh_data to_mesh_data(const SurfaceMesh& mesh, std::optional<std::string> texture_path)
 {
-	using Vertex_index = typename SurfaceMesh::Vertex_index;
-	// using Point_3	   = typename Kernel::Point_3;
-	using Vector_2 = typename Kernel::Vector_2;
-	using Vector_3 = typename Kernel::Vector_3;
+	using point_type = typename SurfaceMesh::Point;
+	using size_type	 = typename SurfaceMesh::size_type;
 
-	std::vector<glm::vec3> vertices(surface_mesh.number_of_vertices());
+	using Kernel	   = typename CGAL::Kernel_traits<point_type>::Kernel;
+	using Vertex_index = typename SurfaceMesh::Vertex_index;
+	using Vector_3	   = typename Kernel::Vector_3;
+	using Vector_2	   = typename Kernel::Vector_2;
+	using Color		   = CGAL::Color;
+
+	if(mesh.number_of_vertices() == 0)
+	{
+		std::cerr << "[WARNING] to_mesh_data : contains no vertices\n";
+		return Mesh_data{};
+	}
+
 	std::map<Vertex_index, unsigned int> indice_map;
 
-	size_t i = 0;
+	std::optional<std::vector<Mesh_data::vec_3f>> positions;
 
-	std::cerr << "copieing vertices...\n";
-
-	for(auto v : surface_mesh.vertices())
+	// point map exist by default on surface_mesh
 	{
-		auto position = surface_mesh.point(v);
-		vertices[i]	  = glm::vec3(position[0], position[1], position[2]);
-		indice_map[v] = i;
-		i++;
-		// 	std::cerr << vertices[i].x << ", " << vertices[i].y << ", " << vertices[i].z << '\n';
-	}
+		size_type i = 0;
 
-	std::vector<glm::vec3> normals(surface_mesh.number_of_vertices());
+		positions.emplace(std::vector<Mesh_data::vec_3f>(mesh.number_of_vertices()));
 
-	auto [normal_map, normal_exist] =
-		surface_mesh.template property_map<Vertex_index, Vector_3>("v:normal");
-
-	if(normal_exist)
-	{
-		std::cerr << "[WARNING] SurfaceMesh conversion : no normal_map found\n";
-	}
-
-	i = 0;
-
-	for(auto v : surface_mesh.vertices())
-	{
-		auto normal = normal_map[v];
-		normals[i]	= glm::vec3(normal[0], normal[1], normal[2]);
-		i++;
-	}
-
-	auto [texcoord_map, texcoord_exist] =
-		surface_mesh.template property_map<Vertex_index, Vector_2>("v:texcoord");
-
-	std::vector<glm::vec2> uvs(surface_mesh.number_of_vertices());
-
-	if(texcoord_exist)
-	{
-		i = 0;
-
-		for(auto v : surface_mesh.vertices())
+		for(auto v : mesh.vertices())
 		{
-			auto uv = texcoord_map[v];
-			uvs[i]	= glm::vec2(uv[0], uv[1]);
-			i++;
+			auto position	= mesh.point(v);
+			(*positions)[i] = {static_cast<float>(position[0]), static_cast<float>(position[1]),
+							   static_cast<float>(position[2])};
+			indice_map[v]	= i;
+			++i;
+			// 	std::cerr << vertices[i].x << ", " << vertices[i].y << ", " << vertices[i].z <<
+			// '\n';
 		}
 	}
 
-	std::vector<unsigned int> indices(surface_mesh.number_of_faces() * 3);
+	std::optional<std::vector<Mesh_data::vec_3f>> normals;
 
-	i = 0;
+	auto [normal_map, normal_map_exist] =
+		mesh.template property_map<Vertex_index, Vector_3>("v:normal");
 
-	for(auto face : surface_mesh.faces())
+	if(normal_map_exist)
 	{
-		auto mesh_vertices = CGAL::vertices_around_face(surface_mesh.halfedge(face), surface_mesh);
+		size_type i = 0;
 
-		for(auto v : mesh_vertices)
+		normals.emplace(std::vector<Mesh_data::vec_3f>(mesh.number_of_vertices()));
+
+		for(auto v : mesh.vertices())
 		{
-			indices[i] = indice_map[v]; // static_cast<unsigned int>(v);
-			i++;
+			auto normal	  = normal_map[v];
+			(*normals)[i] = {static_cast<float>(normal[0]), static_cast<float>(normal[1]),
+							 static_cast<float>(normal[2])};
+			++i;
+		}
+	}
+	else
+	{
+		std::clog << "[STATUS] to_mesh_data : no normal map found\n";
+	}
+
+	std::optional<std::vector<Mesh_data::vec_4f>> colors;
+
+	auto [color_map, color_map_exist] = mesh.template property_map<Vertex_index, Color>("v:color");
+
+	if(color_map_exist)
+	{
+		size_type i = 0;
+
+		colors.emplace(std::vector<Mesh_data::vec_4f>(mesh.number_of_vertices()));
+
+		for(auto v : mesh.vertices())
+		{
+			auto color	 = color_map[v];
+			(*colors)[i] = {color[0] / 255.0, color[1] / 255.0, color[2] / 255.0, color[3] / 255.0};
+			++i;
+		}
+	}
+	else
+	{
+		std::clog << "[STATUS] to_mesh_data : no color map found\n";
+	}
+
+	std::optional<std::vector<Mesh_data::vec_2f>> texcoords;
+
+	auto [texcoord_map, texcoord_map_exist] =
+		mesh.template property_map<Vertex_index, Vector_2>("v:texcoord");
+
+	if(texcoord_map_exist)
+	{
+		size_type i = 0;
+
+		texcoords.emplace(std::vector<Mesh_data::vec_2f>(mesh.number_of_vertices()));
+
+		for(auto v : mesh.vertices())
+		{
+			auto texcoord	= texcoord_map[v];
+			(*texcoords)[i] = {static_cast<float>(texcoord[0]), static_cast<float>(texcoord[1])};
+			++i;
+		}
+	}
+	else
+	{
+		std::clog << "[STATUS] to_mesh_data : no texcoord map found\n";
+	}
+
+	std::optional<std::vector<Mesh_data::vec_3u>> triangulated_faces;
+
+	// face map exist by default on surface_mesh
+	{
+		size_type f = 0;
+
+		triangulated_faces.emplace(std::vector<Mesh_data::vec_3u>(mesh.number_of_faces()));
+
+		for(auto face : mesh.faces())
+		{
+			auto face_vertices = CGAL::vertices_around_face(mesh.halfedge(face), mesh);
+
+			if(face_vertices.size() != 3)
+			{
+				std::cerr << "[WARNING] to_mesh_data : skipped face " << face
+						  << " that is not a triangle\n";
+				continue;
+			}
+
+			size_type i = 0;
+
+			for(auto v : face_vertices)
+			{
+				(*triangulated_faces)[f][i] = indice_map[v];
+				++i;
+			}
+
+			++f;
 		}
 	}
 
-	return {indices, vertices, normals, uvs, texture_path};
+	return Mesh_data{positions, normals, colors, texcoords, triangulated_faces, texture_path};
 }
 
-template <class SurfaceMesh, class Kernel>
-Mesh_data to_mesh_data(const SurfaceMesh& surface_mesh)
+template <class SurfaceMesh>
+Mesh_data to_mesh_data(const SurfaceMesh& mesh)
 {
-	return to_mesh_data<SurfaceMesh, Kernel>(surface_mesh, {});
+	return to_mesh_data<SurfaceMesh>(mesh, {});
 }
 
-// template <class Surface_mesh>
-// Mesh_data to_mesh_data(const Surface_mesh& surface_mesh)
-// {
-// }
-
-#include "conversion.inl"
+// #include "conversion.inl"
 
 #endif // MESH_CONVERT_HPP
