@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <deque>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>

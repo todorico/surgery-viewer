@@ -15,6 +15,8 @@
 #include <CGAL/Surface_mesh/IO.h>
 #include <CGAL/Surface_mesh_default_triangulation_3.h>
 #include <CGAL/Triangulation_3.h>
+#include <CGAL/boost/graph/Euler_operations.h>
+#include <CGAL/boost/graph/iterator.h>
 #include <CGAL/draw_point_set_3.h>
 #include <CGAL/draw_polyhedron.h>
 #include <CGAL/draw_surface_mesh.h>
