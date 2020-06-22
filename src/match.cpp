@@ -83,39 +83,6 @@ Vector normalized(const Vector& v)
 	return v / sqrt(v.squared_length());
 }
 
-CGAL::Color random_color()
-{
-	std::random_device rd;
-	CGAL::Random random(rd());
-	return CGAL::get_random_color(random);
-}
-
-CGAL::Color color_function(const CGAL::Color& c1, const CGAL::Color& c2)
-{
-	CGAL::Color res;
-	for(size_t i = 0; i < 4; ++i)
-	{
-		double c = (c1[i] + c2[i]) / 2.0;
-		res[i]	 = static_cast<unsigned char>(c);
-	}
-	return res;
-}
-
-void set_mesh_color(Mesh& mesh, const CGAL::Color& color)
-{
-	auto [color_map, created] = mesh.add_property_map<Mesh::Vertex_index, CGAL::Color>("v:color");
-
-	if(created)
-		std::cerr << "color_map created\n";
-	else
-		std::cerr << "color_map not created\n";
-
-	for(auto vi : mesh.vertices())
-	{
-		color_map[vi] = color;
-	}
-}
-
 struct WeightKernel
 {
 	enum WeightKernelType
@@ -261,8 +228,9 @@ std::pair<Point, Vector> APSS(const Point& input_point, const Tree& kd_tree,
 	return {output_point_p, output_normal};
 }
 
-Mesh projection(const Mesh& mesh, const std::vector<Mesh::Vertex_index>& mesh_vrange,
-				const Tree& kd_tree, const Mesh::Property_map<Mesh::Vertex_index, Vector>& normals)
+template <class VertexRange>
+Mesh projection(const Mesh& mesh, VertexRange& mesh_vrange, const Tree& kd_tree,
+				const Mesh::Property_map<Mesh::Vertex_index, Vector>& normals)
 {
 	Mesh result = mesh;
 
@@ -282,8 +250,9 @@ Mesh projection(const Mesh& mesh, const std::vector<Mesh::Vertex_index>& mesh_vr
 	return result;
 }
 
-Mesh projection(const Mesh& mesh1, const std::vector<Mesh::Vertex_index>& mesh1_vrange,
-				const Mesh& mesh2, const Mesh::Vertex_range& mesh2_vrange)
+template <class VertexRange>
+Mesh projection(const Mesh& mesh1, const VertexRange& mesh1_vrange, const Mesh& mesh2,
+				const VertexRange& mesh2_vrange)
 {
 	Mesh copy_m2 = mesh2;
 	// Calculating normals
@@ -303,14 +272,98 @@ Mesh projection(const Mesh& mesh1, const std::vector<Mesh::Vertex_index>& mesh1_
 	return projection(mesh1, mesh1_vrange, kd_tree, mesh2_normal_map);
 }
 
+bool is_projection_on_triangle(const Kernel::Point_3& p, const Kernel::Triangle_3& t)
+{
+	auto p_projected = t.supporting_plane().projection(p);
+	return t.has_on(p_projected);
+}
+
+template <class MarkingMap, class Index>
+bool is_marked(const MarkingMap& marking_map, const Index& v, Vertex_mark m)
+
+	template <class SurfaceMesh, class VertexIndexKdTree, class MarkingMap>
+	typename SurfaceMesh::template Property_map<
+		typename SurfaceMesh::Vertex_index, Vertex_mark> marking(SurfaceMesh& M1, SurfaceMesh& M2,
+																 const Tree& M2_tree,
+																 const MarkingMap& M2_marking_map)
+{
+	auto [marking_map, created] =
+		M1.template add_property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>(
+			"v:mark", Vertex_mark::none);
+
+	for(auto M1_v : M1.vertices())
+	{
+		CGAL::K_neighbor_search<typename Tree::Traits> search(M2_tree, M1.point(M1_v), 2);
+
+		auto [M2_v1, M2_dist_squared1] = (*search.begin());
+		auto [M2_v2, M2_dist_squared2] = (*(search.begin() + 1));
+
+		auto h1 = M2.halfedge(M2_v1, M2_v2);
+		auto h2 = M2.halfedge(M2_v2, M2_v1);
+
+		if(h1 != SurfaceMesh::null_halfedge())
+		{
+			auto vertices = CGAL::vertices_around_target(h1, M2);
+
+			if(vertices.size() == 3 &&
+			   is_projection_on_triangle(p, Triangle_3(vertices[0], vertices[1], vertices[2])))
+			{
+				for(auto v : vertices)
+				{
+					if(M2_marking_map[v] == close)
+					{
+						M1_marking_map[v] = close
+					}
+				}
+			}
+		}
+
+		// if ()
+
+		if(is_projection_on_triangle())
+
+			// double distance = std::sqrt(search.begin()->second);
+
+			if(distance > threshold)
+			{
+				marking_map[v] = Vertex_mark::distant;
+			}
+			else
+			{
+				marking_map[v] = Vertex_mark::close;
+			}
+	}
+
+	for(auto v : M1.vertices())
+	{
+		if(marking_map[v] == Vertex_mark::close)
+		{
+			auto around_vertices = CGAL::vertices_around_target(M1.halfedge(v), M1);
+
+			for(auto i : around_vertices)
+			{
+				if(marking_map[i] == Vertex_mark::distant)
+				{
+					marking_map[v] = Vertex_mark::limit;
+					break;
+				}
+			}
+		}
+	}
+
+	return marking_map;
+}
+
 static const char USAGE[] =
 	R"(Create a new mesh by matching parts of multiple similars meshes.
 
-    Usage: match <threshold> <epsilon> <proj_start> <input-files>...
+    Usage: match [options] <threshold> <input-files>...
 
     Options:
-      -h --help      Show this screen
-      --version      Show version
+      -h --help           Show this screen
+      --neighbors=<num>   Numbers of neighbors to query during projection
+      --iterations=<num>  Numbers of iterations during projection
+      --version           Show version
 )";
 
 // x: red
@@ -324,23 +377,55 @@ int main(int argc, char const* argv[])
 	std::map<std::string, docopt::value> args =
 		docopt::docopt(USAGE, {argv + 1, argv + argc}, true, "v1.0");
 
-	double threshold  = 0;
-	double epsilon	  = 0;
-	double proj_start = 0;
+	////// PROGRAM ARGUMENTS
+
+	double threshold = 0;
 
 	try
 	{
-		threshold  = stod(args.at("<threshold>").asString());
-		epsilon	   = stod(args.at("<epsilon>").asString());
-		proj_start = stod(args.at("<proj_start>").asString());
+		threshold = std::stod(args.at("<threshold>").asString());
 	}
 	catch(std::invalid_argument& ia)
 	{
-		std::cerr << "Error: <threshold> and <epsilon> must be a reals numbers\n";
-		return EXIT_FAILURE;
+		std::cerr << "[ERROR] <threshold> must be a reals numbers\n";
+		exit(EXIT_FAILURE);
 	}
 
 	auto input_files = args.at("<input-files>").asStringList();
+
+	////// PROGRAM OPTIONS
+
+	unsigned long iterations = 20;
+	auto opt_iterations		 = args.at("--iterations");
+
+	if(opt_iterations)
+	{
+		try
+		{
+			iterations = std::stoul(opt_iterations.asString());
+		}
+		catch(std::invalid_argument& ia)
+		{
+			std::cerr << "[ERROR] --iterations=<nb> must be an unsigned integer\n";
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	unsigned long neighbors = 20;
+	auto opt_neighbors		= args.at("--neighbors");
+
+	if(opt_neighbors)
+	{
+		try
+		{
+			neighbors = std::stoul(opt_neighbors.asString());
+		}
+		catch(std::invalid_argument& ia)
+		{
+			std::cerr << "[ERROR] --neighbors=<nb> must be an unsigned integer\n";
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	////////// MESH IMPORTATION
 
@@ -366,13 +451,19 @@ int main(int argc, char const* argv[])
 		}
 	}
 
-	std::vector<Mesh> graft_selection(input_files.size() - 1);
-	std::vector<Mesh> graft_selection_transition(input_files.size() - 1);
+	std::vector<Mesh> current_close(input_files.size() - 1);
+	std::vector<Mesh> current_distant(input_files.size() - 1);
+	std::vector<Mesh> current_projected(input_files.size() - 1);
 
-	std::vector<Mesh> graft_basis(input_files.size() - 1);
-	std::vector<Mesh> graft_basis_with_transition(input_files.size() - 1);
-	std::vector<Mesh> graft_basis_with_transition_projected(input_files.size() - 1);
-	// std::vector<Mesh> reconstruction(input_files.size() - 1);
+	std::vector<Mesh> next_close(input_files.size() - 1);
+	std::vector<Mesh> next_distant(input_files.size() - 1);
+	std::vector<Mesh> next_projected(input_files.size() - 1);
+	// std::vector<Mesh> graft_selection_transition(input_files.size() - 1);
+
+	// std::vector<Mesh> graft_basis(input_files.size() - 1);
+	// std::vector<Mesh> graft_basis_with_transition(input_files.size() - 1);
+	// std::vector<Mesh> graft_basis_with_transition_projected(input_files.size() - 1);
+	// // std::vector<Mesh> reconstruction(input_files.size() - 1);
 
 	// reconstruction
 
@@ -400,30 +491,48 @@ int main(int argc, char const* argv[])
 	for(size_t i = 1; i < input_files.size(); ++i)
 	{
 		Mesh current_mesh = reconstruction;
-		// set_mesh_color(current_mesh, current_mesh_color);
-
-		graft_basis[i - 1]							 = current_mesh;
-		graft_basis_with_transition[i - 1]			 = current_mesh;
-		graft_basis_with_transition_projected[i - 1] = current_mesh;
-
-		Mesh next_mesh					  = meshes[i];
-		graft_selection[i - 1]			  = next_mesh;
-		graft_selection_transition[i - 1] = next_mesh;
+		Mesh next_mesh	  = meshes[i];
 
 		// std::cerr << "Adding next_mesh color property...\n";
 		// visualisation += translated(next_mesh, Vector(i * 2.1, 0, 0));
 
-		std::cerr << "Removing points in Mesh" << i << " that are too far from Mesh" << i + 1
-				  << '\n';
+		std::cerr << "[CURRENT_MESH] total vertices: " << current_mesh.number_of_vertices() << '\n';
 
-		std::cerr << "Total vertices: " << current_mesh.number_of_vertices() << '\n';
+		std::cerr << "[CURRENT_MESH] Marking...\n";
+		auto current_marking_map = marking(current_mesh, next_mesh, threshold);
 
-		///////// GRAFT_BASIS (what we keep from current_mesh)
+		std::cerr << "[CURRENT_MESH] Dividing...\n";
+		auto current_division = divide(current_mesh, current_marking_map);
 
-		auto distants_points_from_next_mesh =
-			high_pass_filter_dist(graft_basis[i - 1], next_mesh, threshold);
+		current_close[i - 1]   = current_division.first;
+		current_distant[i - 1] = current_division.second;
 
-		filter_out(graft_basis[i - 1], distants_points_from_next_mesh);
+		std::cerr << "[CURRENT_MESH] Projecting...\n";
+		current_projected[i - 1] =
+			projection(current_mesh, current_mesh.vertices(), next_mesh, next_mesh.vertices());
+
+		std::cerr << "[NEXT_MESH] total vertices: " << next_mesh.number_of_vertices() << '\n';
+
+		std::cerr << "[NEXT_MESH] Marking...\n";
+		auto next_marking_map = marking(next_mesh, current_mesh, threshold);
+
+		std::cerr << "[NEXT_MESH] Dividing...\n";
+		auto next_division = divide(next_mesh, next_marking_map);
+
+		next_close[i - 1]	= next_division.first;
+		next_distant[i - 1] = next_division.second;
+
+		// current_marking_map = marking(current_projected[i - 1], current_mesh, threshold);
+		// current_division	= divide(current_projected[i - 1], current_marking_map);
+
+		// current_close[i - 1]   = current_division.first;
+		// current_distant[i - 1] = current_division.second;
+
+		// auto distants_points_from_next_mesh =
+		// 	high_pass_filter_dist(graft_basis[i - 1], next_mesh, threshold);
+
+		// filter_out(graft_basis[i - 1], distants_points_from_next_mesh);
+		// graft_basis[i - 1] = current_division.first;
 
 		// threshold   = valeur à partir de laquelles les points de current_mesh sont considérer
 		// proche de next_mesh
@@ -442,10 +551,12 @@ int main(int argc, char const* argv[])
 
 		///////// GRAFT_BASIS_WITH_TRANSITION (what will be used to project on next_mesh)
 
-		auto distants_points_plus_epsilon_from_next_mesh = high_pass_filter_dist(
-			graft_basis_with_transition[i - 1], next_mesh, threshold + epsilon);
+		// auto distants_points_plus_epsilon_from_next_mesh = high_pass_filter_dist(
+		// 	graft_basis_with_transition[i - 1], next_mesh, threshold + epsilon);
 
-		filter_out(graft_basis_with_transition[i - 1], distants_points_plus_epsilon_from_next_mesh);
+		// filter_out(graft_basis_with_transition[i - 1],
+		// distants_points_plus_epsilon_from_next_mesh);
+		// graft_basis_with_transition[i - 1] =
 
 		// // other
 		// Mesh temp	 = old_next;
@@ -471,19 +582,21 @@ int main(int argc, char const* argv[])
 
 		///////// GRAFT_SELECTION (what we keep from next_mesh)
 
-		auto close_points_from_current_mesh =
-			low_pass_filter_dist(graft_selection[i - 1], current_mesh, threshold);
+		// auto close_points_from_current_mesh =
+		// 	low_pass_filter_dist(graft_selection[i - 1], current_mesh, threshold);
 
-		filter_out(graft_selection[i - 1], close_points_from_current_mesh);
+		// filter_out(graft_selection[i - 1], close_points_from_current_mesh);
+		// graft_selection[i - 1] = next_division.second;
 
 		///////// GRAFT_SELECTION_TRANSITION (what we projection graft_basis_transition on)
 
-		auto distants_points_less_epsilon_from_current_mesh =
-			band_stop_filter_dist(graft_selection_transition[i - 1], current_mesh,
-								  threshold - epsilon, threshold + epsilon);
+		// auto distants_points_less_epsilon_from_current_mesh =
+		// 	band_stop_filter_dist(graft_selection_transition[i - 1], current_mesh,
+		// 						  threshold - epsilon, threshold + epsilon);
 
-		filter_out(graft_selection_transition[i - 1],
-				   distants_points_less_epsilon_from_current_mesh);
+		// filter_out(graft_selection_transition[i - 1],
+		// filter_out(graft_selection_transition[i - 1],
+		// 		   distants_points_less_epsilon_from_current_mesh);
 		// auto not_transition_region2 = low_pass_filter_dist(next_mesh, global_mesh, epsilon);
 
 		// Mesh transition2 = next_mesh;
@@ -515,12 +628,10 @@ int main(int argc, char const* argv[])
 		// 	high_pass_filter_dist(graft_basis_with_transition[i - 1], next_mesh, proj_start),
 		// 	next_mesh, next_mesh.vertices());
 		//
-		auto projected_graft = projection(
-			graft_basis_with_transition[i - 1],
-			high_pass_filter_dist(graft_basis_with_transition[i - 1], next_mesh, proj_start),
-			graft_selection_transition[i - 1], graft_selection_transition[i - 1].vertices());
-
-		graft_basis_with_transition_projected[i - 1] = projected_graft;
+		// auto projected_graft = projection(
+		// 	graft_basis_with_transition[i - 1],
+		// 	high_pass_filter_dist(graft_basis_with_transition[i - 1], next_mesh, proj_start),
+		// 	graft_selection_transition[i - 1], graft_selection_transition[i - 1].vertices());
 
 		// auto proj_all = projection(temp, high_pass_filter_dist(temp, old_next, epsilon),
 		// old_next, 						   old_next.vertices());
@@ -545,8 +656,8 @@ int main(int argc, char const* argv[])
 
 		//////////// GLOBAL_MESH (FUSION graft_basis_with_transition_projected and graft_selection)
 
-		reconstruction = graft_basis_with_transition_projected[i - 1];
-		reconstruction += graft_selection[i - 1];
+		reconstruction = current_close[i - 1];
+		reconstruction += next_distant[i - 1];
 
 		// visualisation += translated(global_mesh, Vector(-1.05 + i * 2.1, -2.1, 0));
 	}
@@ -579,12 +690,23 @@ int main(int argc, char const* argv[])
 		/// 5 : zone à gardé
 		/// 2 : base de grèfe + transition projeté sur original 1
 
-		viewer.add(to_mesh_data<Mesh>(meshes[i], textures[i]));
-		viewer.add(to_mesh_data<Mesh>(meshes[i + 1], textures[i + 1]));
-		viewer.add(to_mesh_data<Mesh>(graft_basis[i], textures[i]));
-		viewer.add(to_mesh_data<Mesh>(graft_selection[i], textures[i + 1]));
-		viewer.add(to_mesh_data<Mesh>(graft_basis_with_transition_projected[i], textures[i]));
-		viewer.add(to_mesh_data<Mesh>(graft_selection_transition[i], textures[i + 1]));
+		// viewer.add(to_mesh_data<Mesh>(meshes[i], textures[i]));
+		// viewer.add(to_mesh_data<Mesh>(meshes[i + 1], textures[i + 1]));
+
+		viewer.add(to_mesh_data<Mesh>(current_close[i], textures[i]));
+		viewer.add(to_mesh_data<Mesh>(current_distant[i], textures[i]));
+
+		viewer.add(to_mesh_data<Mesh>(next_close[i], textures[i]));
+		viewer.add(to_mesh_data<Mesh>(next_distant[i], textures[i]));
+
+		viewer.add(to_mesh_data<Mesh>(current_projected[i], textures[i]));
+
+		// viewer.add(to_mesh_data<Mesh>(next_projected[i], textures[i]));
+
+		// viewer.add(to_mesh_data<Mesh>(graft_basis[i], textures[i]));
+		// viewer.add(to_mesh_data<Mesh>(graft_selection[i], textures[i + 1]));
+		// viewer.add(to_mesh_data<Mesh>(graft_basis_with_transition_projected[i], textures[i]));
+		// viewer.add(to_mesh_data<Mesh>(graft_selection_transition[i], textures[i + 1]));
 		// viewer.add(to_mesh_data<Mesh>(graft_basis_with_transition[i], textures[i]));
 
 		// viewer.add(to_mesh_data<Mesh, Kernel>(reconstruction[i]));

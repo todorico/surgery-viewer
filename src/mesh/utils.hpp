@@ -1,7 +1,13 @@
 #ifndef MESH_UTILS_HPP
 #define MESH_UTILS_HPP
 
+// CGAL
+
+#include <CGAL/IO/Color.h>
 #include <CGAL/Surface_mesh.h>
+
+// STD
+
 #include <vector>
 
 // BAND-PASS
@@ -42,9 +48,51 @@ std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
 
 // FILTER
 
-template <class P>
-void filter_out(CGAL::Surface_mesh<P>& mesh,
-				const std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>& vertices);
+template <class SurfaceMesh, class VertexRange>
+void filter_out(SurfaceMesh& mesh, const VertexRange& vertices);
+
+// COLOR
+
+CGAL::Color random_color();
+
+template <class SurfaceMesh>
+void set_mesh_color(SurfaceMesh& mesh, const CGAL::Color& color);
+
+// MARKING
+
+enum class Vertex_mark : unsigned char
+{
+	none = 0,
+	close,
+	distant,
+	limit
+};
+
+template <class SurfaceMesh, class Tree>
+typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
+	marking(SurfaceMesh& M1, const Tree& M2_tree, double threshold);
+
+template <class SurfaceMesh>
+typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
+	marking(SurfaceMesh& M1, const SurfaceMesh& M2, double threshold);
+
+template <class VertexRange, class MarkingMap>
+auto marked(const VertexRange& vertices, const MarkingMap& marking_map, const Vertex_mark mark);
+
+// DIVIDE
+
+template <class SurfaceMesh>
+std::pair<SurfaceMesh, SurfaceMesh> divide(
+	const SurfaceMesh& mesh,
+	typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
+		marking_map);
+
+// PROJECT
+
+template <class SurfaceMesh>
+SurfaceMesh projection(const SurfaceMesh& M1, const SurfaceMesh& M2)
+{
+}
 
 #include "utils.inl"
 

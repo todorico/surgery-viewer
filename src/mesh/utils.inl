@@ -12,6 +12,7 @@
 
 // STD
 #include <limits>
+#include <random>
 #include <vector>
 
 // CGAL::Kernel_traits< T >
@@ -118,9 +119,8 @@ std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
 	return band_pass_filter_dist(M1, M2, min, std::numeric_limits<double>::max());
 }
 
-template <class P>
-void filter_out(CGAL::Surface_mesh<P>& mesh,
-				const std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>& vertices)
+template <class SurfaceMesh, class VertexRange>
+void filter_out(SurfaceMesh& mesh, const VertexRange& vertices)
 {
 	for(auto vertex_index : vertices)
 	{
@@ -129,7 +129,8 @@ void filter_out(CGAL::Surface_mesh<P>& mesh,
 		if(mesh.is_removed(vertex_index))
 			continue;
 
-		std::vector<typename CGAL::Surface_mesh<P>::Halfedge_index> low_dist_halfhedges;
+		std::vector<typename SurfaceMesh::Halfedge_index> low_dist_halfhedges;
+
 		auto halfedges = CGAL::halfedges_around_target(vertex_index, mesh);
 
 		// Sans cette etapes remove_face plantera pendant l'iteration (on efface des
@@ -150,168 +151,130 @@ void filter_out(CGAL::Surface_mesh<P>& mesh,
 	}
 }
 
-///////////////////////////////////////////////////////////////////// MLS
+// COLOR
 
-#endif // MESH_UTILS_INL
-
-///////////////////////// MANIPULATORS
-
-/*
-void print_v(const Mesh& M)
+CGAL::Color random_color()
 {
-	for(auto vertex : M.vertices())
-		std::cerr << vertex << ": " << M.point(vertex) << '\n';
+	std::random_device rd;
+	CGAL::Random random(rd());
+	return CGAL::get_random_color(random);
 }
 
-void print_e(const Mesh& M)
+template <class SurfaceMesh>
+void set_mesh_color(SurfaceMesh& mesh, const CGAL::Color& color)
 {
-	for(auto edge : M.edges())
-		std::cerr << edge << ": (" << M.vertex(edge, 0) << ") -- (" << M.vertex(edge, 1) << ")\n";
+	auto [color_map, created] =
+		mesh.template add_property_map<typename SurfaceMesh::Vertex_index, CGAL::Color>("v:color");
+
+	if(created)
+		std::cerr << "color_map created\n";
+	else
+		std::cerr << "color_map not created\n";
+
+	for(auto vi : mesh.vertices())
+	{
+		color_map[vi] = color;
+	}
 }
 
-void operate_v(Mesh& m, Mesh::Vertex_index vi, std::string query)
+/////////////////// MARKED
+
+template <class SurfaceMesh, class Tree>
+typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
+	marking(SurfaceMesh& M1, const Tree& M2_tree, double threshold)
 {
-	if(query == "rm")
-	{
-		m.remove_vertex(vi);
-	}
-	else if(query == "rmc")
-	{
-		// Need no incident face to vi is a hole
-		// Need min 2 faces incident to faces that are incident to vi
-		auto halfedge	 = m.halfedge(vi);
-		auto res		  = CGAL::Euler::remove_center_vertex(halfedge, m);
-		auto res_opposite = m.opposite(res);
-		std::cerr << "res\t\t= " << res << '\n';
-		std::cerr << "is_border(" << res << ")\t= " << m.is_border(res) << '\n';
-		std::cerr << "is_border(opposite(" << res << "))\t= " << m.is_border(res_opposite) << '\n';
-	}
-	else if(query == "rf")
-	{
-		// Attention invalidation des halfedges
-		std::vector<Mesh::Halfedge_index> to_remove;
-		// auto incident = m.halfedge(vi);
+	auto [marking_map, created] =
+		M1.template add_property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>(
+			"v:mark", Vertex_mark::none);
 
-		auto halfedges = CGAL::halfedges_around_target(vi, m);
+	for(auto v : M1.vertices())
+	{
+		CGAL::K_neighbor_search<typename Tree::Traits> search(M2_tree, M1.point(v), 1);
 
-		for(auto h : halfedges)
-			to_remove.push_back(h);
+		double distance = std::sqrt(search.begin()->second);
 
-		for(auto h : to_remove)
+		if(distance > threshold)
 		{
-			if(!m.is_valid(h) && !m.is_removed(h))
-				continue;
+			marking_map[v] = Vertex_mark::distant;
+		}
+		else
+		{
+			marking_map[v] = Vertex_mark::close;
+		}
+	}
 
-			if(!m.is_border(h))
+	for(auto v : M1.vertices())
+	{
+		if(marking_map[v] == Vertex_mark::close)
+		{
+			auto around_vertices = CGAL::vertices_around_target(M1.halfedge(v), M1);
+
+			for(auto i : around_vertices)
 			{
-				CGAL::Euler::remove_face(h, m);
-			}
-			else
-			{
-				std::cerr << "ignored border halfedge\n";
+				if(marking_map[i] == Vertex_mark::distant)
+				{
+					marking_map[v] = Vertex_mark::limit;
+					break;
+				}
 			}
 		}
 	}
-	else
-	{
-		std::cerr << "Error: unsupported operation " << query << "on vertex\n";
-	}
+
+	return marking_map;
 }
 
-void operate_h(Mesh& m, Mesh::Halfedge_index hi, std::string query)
+template <class SurfaceMesh>
+typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
+	marking(SurfaceMesh& M1, const SurfaceMesh& M2, double threshold)
 {
-	if(query == "mh")
-	{
-		// Need no incident border edge
-		CGAL::Euler::make_hole(hi, m);
-	}
-	else if(query == "rf")
-	{
-		// Need h not a border halfedge
-		CGAL::Euler::remove_face(hi, m);
-	}
-	else
-	{
-		std::cerr << "Error: unsupported operation " << query << "on halfedge\n";
-	}
+	using Kernel		  = typename CGAL::Kernel_traits<typename SurfaceMesh::Point>::Kernel;
+	using TreeTraits	  = CGAL::Search_traits_3<Kernel>;
+	using Neighbor_search = CGAL::K_neighbor_search<TreeTraits>;
+	using Tree			  = typename Neighbor_search::Tree;
+
+	Tree M2_tree(M2.points().begin(), M2.points().end());
+
+	return marking(M1, M2_tree, threshold);
 }
 
-void operate_e(Mesh& m, Mesh::Edge_index ei, std::string query)
+template <class VertexRange, class MarkingMap>
+auto marked(const VertexRange& vertices, const MarkingMap& marking_map, const Vertex_mark mark)
 {
-	if(query == "rm")
-	{
-		m.remove_edge(ei);
-	}
-	else
-	{
-		std::cerr << "Error: unsupported operation " << query << "on edge\n";
-	}
+	std::vector<typename boost::range_value<VertexRange>::type> result;
+
+	std::copy_if(vertices.begin(), vertices.end(), std::back_inserter(result),
+				 [&, mark](auto v) { return marking_map[v] == mark; });
+
+	return result;
 }
 
-void operate_f(Mesh& m, Mesh::Face_index fi, std::string query)
+// DIVIDE
+
+template <class SurfaceMesh>
+std::pair<SurfaceMesh, SurfaceMesh> divide(
+	const SurfaceMesh& mesh,
+	typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
+		marking_map)
 {
-	if(query == "rm")
-	{
-		m.remove_face(fi);
-	}
-	else
-	{
-		std::cerr << "Error: unsupported operation " << query << "on face\n";
-	}
+	SurfaceMesh M1_minus = mesh;
+
+	filter_out(M1_minus, marked(M1_minus.vertices(), marking_map, Vertex_mark::distant));
+
+	SurfaceMesh M1_plus = mesh;
+
+	filter_out(M1_plus, marked(M1_plus.vertices(), marking_map, Vertex_mark::close));
+
+	return {M1_minus, M1_plus};
 }
 
-void operate_m(Mesh& m, std::string query)
-{
-	if(query == "print")
-	{
-		print_e(m);
-		print_v(m);
-	}
-	else if(query == "draw")
-	{
-		CGAL::draw(m);
-	}
-	else
-	{
-		std::cerr << "Error: unsupported operation " << query << "on mesh\n";
-	}
-}
+// MERGE
 
-void operate(Mesh& m, std::string element_id, std::string query)
-{
-	char type		   = element_id.front();
-	Mesh::size_type id = element_id.size() > 1 ? stoul(element_id.substr(1)) : size_t(0);
+// template <class SurfaceMesh, class VertexRange>
+// SurfaceMesh merge(const SurfaceMesh& M1, const SurfaceMesh& M2)
+// {
 
-	switch(type)
-	{
-		case 'v':
-			operate_v(m, Mesh::Vertex_index(id), query);
-			break;
-		case 'h':
-			operate_h(m, Mesh::Halfedge_index(id), query);
-			break;
-		case 'e':
-			operate_e(m, Mesh::Edge_index(id), query);
-			break;
-		case 'f':
-			operate_f(m, Mesh::Face_index(id), query);
-			break;
-		case 'm':
-			operate_m(m, query);
-			break;
-		default:
-			std::cerr << "Error: unsupported object type: " << type << " from " << element_id
-					  << '\n';
-			return;
-			break;
-	}
-}
+// }
 
-void print_state(Mesh& mesh)
-{
-	std::cerr << "number_of_removed_halfedges : " << mesh.number_of_removed_halfedges() << '\n';
-	std::cerr << "number_of_removed_faces     : " << mesh.number_of_removed_faces() << '\n';
-	std::cerr << "number_of_removed_vertices  : " << mesh.number_of_removed_vertices() << '\n';
-	std::cerr << "number_of_removed_edges     : " << mesh.number_of_removed_edges() << '\n';
-}
-*/
+///////////////////////////////////////////////////////////////////// MLS
+
+#endif // MESH_UTILS_INL
