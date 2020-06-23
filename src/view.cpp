@@ -1,25 +1,9 @@
-// Project
-#include "mesh/view.hpp"
-#include "docopt/docopt.h"
-#include "mesh/conversion.hpp"
-#include "mesh/data.hpp"
-
-// #include "mesh/io.hpp"
-
-// // CGAL
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Surface_mesh.h>
-#include <CGAL/draw_surface_mesh.h>
-
 // STD
 #include <iostream>
 
-using Kernel = CGAL::Simple_cartesian<double>;
-// using Kernel = CGAL::Exact_predicates_exact_constructions_kernel;
-// using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
-
-using Point = Kernel::Point_3;
-using Mesh	= CGAL::Surface_mesh<Point>;
+// PROJECT
+#include "docopt/docopt.h"
+#include "mesh/viewer.hpp"
 
 static const char USAGE[] =
 	R"(3D viewer for geometrical file formats (OFF, PLY, OBJ, ...).

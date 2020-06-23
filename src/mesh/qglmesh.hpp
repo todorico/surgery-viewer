@@ -48,6 +48,6 @@ class QGLMesh
 	size_t m_number_of_faces;
 };
 
-#include "qglmesh.inl"
+// #include "qglmesh.inl"
 
 #endif // QGLMESH

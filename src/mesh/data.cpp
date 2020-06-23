@@ -1,7 +1,14 @@
-#ifndef MESH_DATA_INL
-#define MESH_DATA_INL
+// #ifndef MESH_DATA_INL
+// #define MESH_DATA_INL
 
 #include "data.hpp"
+
+// STD
+
+#include <iostream>
+#include <string>
+
+// ASSIMP
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -202,4 +209,4 @@ std::optional<std::string> find_first_material_texture_name(aiMaterial* mat)
 	return {};
 }
 
-#endif // MESH_DATA_INL
+// #endif // MESH_DATA_INL

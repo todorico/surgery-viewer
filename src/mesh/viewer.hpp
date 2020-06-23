@@ -4,7 +4,6 @@
 #include "qglmesh.hpp"
 
 #include <CGAL/Qt/qglviewer.h>
-// #include <QKeyEvent>
 
 #include <array>
 #include <memory>
@@ -43,6 +42,6 @@ class MeshViewer : public CGAL::QGLViewer
 	// std::numeric_limits<qreal>::max(), std::numeric_limits<qreal>::max()), bb_max;
 };
 
-#include "viewer.inl"
+// #include "viewer.inl"
 
 #endif // MESH_VIEWER_HPP

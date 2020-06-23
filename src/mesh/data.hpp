@@ -3,7 +3,7 @@
 
 // STD
 
-#include <iostream>
+#include <array>
 #include <optional>
 #include <string>
 #include <vector>
@@ -11,11 +11,6 @@
 // ASSIMP
 
 #include <assimp/scene.h>
-
-// STD
-
-#include <array>
-#include <optional>
 
 struct Mesh_data
 {
@@ -39,7 +34,5 @@ std::optional<Mesh_data> find_first_mesh_data(aiNode* node, const aiScene* scene
 
 // Does not return full path of texture file but only the filename
 std::optional<std::string> find_first_material_texture_name(aiMaterial* mat);
-
-#include "data.inl"
 
 #endif // MESH_DATA_HPP

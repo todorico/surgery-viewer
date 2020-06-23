@@ -1,98 +1,68 @@
 #ifndef MESH_UTILS_HPP
 #define MESH_UTILS_HPP
 
+#include "../instance/Surface_mesh.hpp"
+
+#include "marking.hpp"
+
 // CGAL
-
 #include <CGAL/IO/Color.h>
-#include <CGAL/Surface_mesh.h>
-
-// STD
-
-#include <vector>
-
-// BAND-PASS
-
-template <class P>
-std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-						  double min, double max);
-
-template <class P>
-std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-						  double max);
-
-// BAND-STOP
-
-template <class P>
-std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-						  double min, double max);
-
-template <class P>
-std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-						  double max);
-
-// LOW/HIGH-PASS
-
-template <class P>
-std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-	low_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-						 double max);
-
-template <class P>
-std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-	high_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-						  double min);
-
-// FILTER
-
-template <class SurfaceMesh, class VertexRange>
-void filter_out(SurfaceMesh& mesh, const VertexRange& vertices);
 
 // COLOR
 
 CGAL::Color random_color();
 
-template <class SurfaceMesh>
-void set_mesh_color(SurfaceMesh& mesh, const CGAL::Color& color);
+template <class VertexRange>
+void set_mesh_color(Surface_mesh& mesh, const VertexRange& vertices, const CGAL::Color& color);
 
-// MARKING
+void set_mesh_color(Surface_mesh& mesh, const CGAL::Color& color);
 
-enum class Vertex_mark : unsigned char
-{
-	none = 0,
-	close,
-	distant,
-	limit
-};
+// FILTER
 
-template <class SurfaceMesh, class Tree>
-typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
-	marking(SurfaceMesh& M1, const Tree& M2_tree, double threshold);
+template <class VertexRange>
+Surface_mesh filtered(const Surface_mesh& mesh, const VertexRange& vertices);
 
-template <class SurfaceMesh>
-typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
-	marking(SurfaceMesh& M1, const SurfaceMesh& M2, double threshold);
+// // DIVIDE
 
-template <class VertexRange, class MarkingMap>
-auto marked(const VertexRange& vertices, const MarkingMap& marking_map, const Vertex_mark mark);
+std::pair<Surface_mesh, Surface_mesh>
+	divide(const Surface_mesh& mesh,
+		   const Surface_mesh::Property_map<Surface_mesh::Vertex_index, Vertex_mark>& marking_map);
 
-// DIVIDE
+// // BAND-PASS
 
-template <class SurfaceMesh>
-std::pair<SurfaceMesh, SurfaceMesh> divide(
-	const SurfaceMesh& mesh,
-	typename SurfaceMesh::template Property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>
-		marking_map);
+// template <class P>
+// std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
+// 	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
+// 						  double min, double max);
 
-// PROJECT
+// template <class P>
+// std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
+// 	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
+// 						  double max);
 
-template <class SurfaceMesh>
-SurfaceMesh projection(const SurfaceMesh& M1, const SurfaceMesh& M2)
-{
-}
+// // BAND-STOP
+
+// template <class P>
+// std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
+// 	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
+// 						  double min, double max);
+
+// template <class P>
+// std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
+// 	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
+// 						  double max);
+
+// // LOW/HIGH-PASS
+
+// template <class P>
+// std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
+// 	low_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
+// 						 double max);
+
+// template <class P>
+// std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
+// 	high_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
+// 						  double min);
 
 #include "utils.inl"
 

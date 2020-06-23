@@ -1,7 +1,9 @@
-#ifndef QGLMESH_INL
-#define QGLMESH_INL
+// #ifndef QGLMESH_INL
+// #define QGLMESH_INL
 
 #include "qglmesh.hpp"
+
+#include <iostream>
 
 QGLMesh::QGLMesh()
 	: vao(new QOpenGLVertexArrayObject()), texture(), positions(QOpenGLBuffer::VertexBuffer),
@@ -207,4 +209,4 @@ void QGLMesh::draw(QOpenGLShaderProgram& shader_program, GLenum mode)
 	vao->release();
 }
 
-#endif // QGLMESH_INL
+// #endif // QGLMESH_INL

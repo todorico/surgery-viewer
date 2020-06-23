@@ -1,357 +1,267 @@
-// Project
+// STD
+#include <iostream>
+
+// PROJECT
 #include "docopt/docopt.h"
 #include "mesh/conversion.hpp"
-#include "mesh/draw.hpp"
-#include "mesh/io.hpp"
+#include "mesh/projection.hpp"
 #include "mesh/utils.hpp"
 #include "mesh/viewer.hpp"
 
-// CGAL: Surface-mesh
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Surface_mesh.h>
-#include <CGAL/draw_surface_mesh.h>
+// CGAL
+#include <CGAL/Polygon_mesh_processing/merge_border_vertices.h>
+// #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
 
-// CGAL: Projection
-#include <CGAL/K_neighbor_search.h>
-#include <CGAL/Polygon_mesh_processing/compute_normal.h>
-#include <CGAL/Polygon_mesh_processing/smooth_mesh.h>
-#include <CGAL/Search_traits_3.h>
-#include <CGAL/Search_traits_adapter.h>
-#include <CGAL/boost/iterator/counting_iterator.hpp>
-
-// STD
-#include <iostream>
-#include <random>
-#include <string>
-
-using Kernel = CGAL::Simple_cartesian<double>;
-// using Kernel = CGAL::Exact_predicates_exact_constructions_kernel;
-// using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
-
-using Point	 = Kernel::Point_3;
-using Vector = Kernel::Vector_3;
-using Mesh	 = CGAL::Surface_mesh<Point>;
-
-class STDVector_property_map
+template <class VertexRange>
+bool is_distant_face(const VertexRange& face_vertices, const SM_marking_map& marking_map)
 {
-	const std::vector<Point>& points;
+	size_t count_close = 0;
 
-  public:
-	using value_type = Point;
-	using reference	 = const value_type&;
-	using key_type	 = size_t;
-	using category	 = boost::lvalue_property_map_tag;
-
-	STDVector_property_map(const std::vector<Point>& pts) : points(pts) {}
-
-	reference operator[](key_type k) const
+	for(auto v : face_vertices)
 	{
-		return points[k];
-	}
-
-	friend reference get(const STDVector_property_map& ppmap, key_type i)
-	{
-		return ppmap[i];
-	}
-};
-
-using TreeTraits = CGAL::Search_traits_3<Kernel>;
-using TreeTraitsSTDVectorAdapter =
-	CGAL::Search_traits_adapter<size_t, STDVector_property_map, TreeTraits>;
-using TreeTraitsMeshAdapter =
-	CGAL::Search_traits_adapter<Mesh::Vertex_index,
-								Mesh::Property_map<Mesh::Vertex_index, Mesh::Point>, TreeTraits>;
-
-using Neighbor_search = CGAL::K_neighbor_search<TreeTraitsMeshAdapter>;
-using Distance		  = Neighbor_search::Distance;
-using Tree			  = Neighbor_search::Tree;
-
-Mesh translated(const Mesh& mesh, const Vector& v)
-{
-	Mesh res = mesh;
-
-	for(auto vi : res.vertices())
-	{
-		res.point(vi) += v;
-	}
-
-	return res;
-}
-
-Vector normalized(const Vector& v)
-{
-	return v / sqrt(v.squared_length());
-}
-
-struct WeightKernel
-{
-	enum WeightKernelType
-	{
-		Gaussian,
-		Wendland,
-		Singular,
-		Uniform
-	};
-
-	enum WeightKernelRadiusMode
-	{
-		Constant,
-		Max,
-		Adaptive
-	};
-
-	WeightKernelType type;
-	WeightKernelRadiusMode radiusMode;
-	double radius;
-	double sExponent;
-
-	// Constant : r = radius
-	// Max      : r = max(radius , max(r[i] , i \in neighbors))
-	// Adaptive : r = max(r[i] , i \in neighbors)
-
-	double weight(double d, double neihboringSphereRadius) const
-	{
-		double r = radiusMode == Constant
-					   ? radius
-					   : radiusMode == Max ? std::max<double>(radius, neihboringSphereRadius)
-										   : neihboringSphereRadius;
-		// kernel_type = 1 : Gaussien
-		if(type == Gaussian)
+		if(marking_map[v] == Vertex_mark::Close)
 		{
-			return exp(-d * d / (r * r));
-		}
-
-		// kernel_type = 2 : Wendland
-		else if(type == Wendland)
-		{
-			return pow(1 - d / r, 4) * (1 + 4 * d / r);
-		}
-
-		// kernel_type = 3 : Singulier
-		else if(type == Singular)
-		{
-			return pow(r / d, sExponent);
-		}
-
-		// other : uniform
-		else
-		{
-			return 1.0;
-		}
-	}
-};
-
-// faire attention au radius de WeightKernel
-std::pair<Point, Vector> APSS(const Point& input_point, const Tree& kd_tree,
-							  const Mesh::Property_map<Mesh::Vertex_index, Vector>& normals,
-							  const WeightKernel& weight_kernel = {WeightKernel::Gaussian,
-																   WeightKernel::Adaptive, 0, 0},
-							  const size_t nb_iterations = 20, const unsigned int K = 20)
-{
-	// Initisalisation
-	Vector output_normal;
-	Vector output_point_v(input_point[0], input_point[1], input_point[2]);
-
-	auto positions = kd_tree.traits().point_property_map();
-
-	for(size_t i = 0; i < nb_iterations; i++)
-	{
-		// Find K nearest neighbors
-		Point output_point_p(output_point_v[0], output_point_v[1], output_point_v[2]);
-
-		Neighbor_search::Distance distance_adapter(kd_tree.traits().point_property_map());
-		Neighbor_search search(kd_tree, output_point_p, K, 0, true, distance_adapter);
-
-		double maxDist = sqrt((search.end() - 1)->second);
-
-		double s_wi		= 0;
-		double s_wipini = 0;
-		double s_wipipi = 0;
-
-		Vector s_wipi(0, 0, 0);
-		Vector s_wini(0, 0, 0);
-
-		for(auto point_dist_squared : search)
-		{
-			auto nni_idx	   = point_dist_squared.first;
-			double nni_sqrDist = point_dist_squared.second;
-			double wi		   = weight_kernel.weight(sqrt(nni_sqrDist), maxDist);
-
-			Vector position(positions[nni_idx][0], positions[nni_idx][1], positions[nni_idx][2]);
-			Vector normal(normals[nni_idx]);
-
-			s_wipini += (wi * CGAL::scalar_product(position, normal));
-			s_wipipi += (wi * CGAL::scalar_product(position, normal));
-
-			s_wipi += (wi * position);
-			s_wini += (wi * normal);
-			s_wi += wi;
-		}
-
-		// algebraic sphere: u4.||X||^2 + u123.X + u0 = 0
-		// geometric sphere: ||X-C||^2 - r^2 = 0
-		// geometric plane:  (X-C).n = 0
-		double u4 = 0.5 * (s_wipini / s_wi - CGAL::scalar_product(s_wipi / s_wi, s_wini / s_wi)) /
-					(s_wipipi / s_wi - CGAL::scalar_product(s_wipi / s_wi, s_wipi / s_wi));
-		Vector u123 = (s_wini - 2 * u4 * s_wipi) / s_wi;
-		double u0	= -(CGAL::scalar_product(s_wipi, u123) + u4 * s_wipipi) / s_wi;
-
-		if(fabs(u4) < 0.000000000001)
-		{
-			// then project on a plane (it's a degenerate sphere)
-			Vector n	  = -u123;
-			double lambda = (u0 - CGAL::scalar_product(output_point_v, n)) / n.squared_length();
-			output_point_v += lambda * n;
-			output_normal = s_wini;
-			output_normal = normalized(output_normal);
-		}
-		else
-		{
-			Vector sphere_center = u123 / (-2 * u4);
-			double sphere_radius =
-				sqrt(std::max<double>(0.0, sphere_center.squared_length() - u0 / u4));
-
-			// projection of the inputpoint onto the sphere
-
-			// direction of the point from the sphere center
-			Vector pc = output_point_v - sphere_center;
-			pc		  = normalized(pc);
-
-			output_point_v = sphere_center + sphere_radius * pc;
-			output_normal  = u123 + 2 * u4 * output_point_v;
-			output_normal  = normalized(output_normal);
+			++count_close;
 		}
 	}
 
-	Point output_point_p(output_point_v[0], output_point_v[1], output_point_v[2]);
-
-	return {output_point_p, output_normal};
+	return count_close == 0;
 }
 
 template <class VertexRange>
-Mesh projection(const Mesh& mesh, VertexRange& mesh_vrange, const Tree& kd_tree,
-				const Mesh::Property_map<Mesh::Vertex_index, Vector>& normals)
+bool is_point_projected_on_triangle(const Surface_mesh& mesh, const VertexRange& triangle_vertices,
+									const Kernel::Point_3& p)
 {
-	Mesh result = mesh;
+	// if(triangle_vertices.size() != 3)
+	// {
+	// 	std::cerr << "[ERROR] triangle_vertices must be of size 3 but is of size "
+	// 			  << triangle_vertices.size() << '\n';
+	// 	exit(EXIT_FAILURE);
+	// }
 
-	// auto [result_normal, created] = result.add_property_map<Mesh::Vertex_index,
-	// Vector>("v:normal");
+	// Get triangle points
 
-	// if(created)
-	// std::cerr << "result_map created\n";
+	auto v_it = triangle_vertices.begin();
 
-	for(auto vi : mesh_vrange)
-	{
-		auto [point, normal] = APSS(result.point(vi), kd_tree, normals);
-		result.point(vi)	 = point;
-		// result_normal[vi]	 = normal;
-	}
+	auto a = mesh.point(*v_it);
+	++v_it;
+	auto b = mesh.point(*v_it);
+	++v_it;
+	auto c = mesh.point(*v_it);
 
-	return result;
+	// Create triangle
+
+	Kernel::Triangle_3 triangle(a, b, c);
+	// auto p_projected = triangle.supporting_plane().projection(p);
+
+	// Project point on triangle plane
+
+	auto perpendicular_line = triangle.supporting_plane().perpendicular_line(p);
+	// auto perpendicular_line = Kernel::Line_3(p, p_projected);
+	// auto orthogonal_line
+
+	return CGAL::do_intersect(perpendicular_line, triangle);
+
+	// auto result = CGAL::intersection(perpendicular_line, triangle);
+
+	// if(result.has_value())
+	// {
+	// 	if(auto segment = boost::get<Kernel::Segment_3>(&*result))
+	// 	{
+	// 		return segment->has_on(p);
+	// 	}
+	// 	else
+	// 	{
+	// 		// auto point = boost::get<Kernel::Point_3>(&*result);
+	// 		return true;
+	// 	}
+	// }
+
+	// return false;
+	// auto dist = Kernel::Vector_3(p, p_projected).squared_length();
+	// return dist < 0.00000001;
+	// bool lol  = triangle.has_on(p_projected) || dist < 0.0000000001;
+
+	// std::cerr << "on_triangle? " << lol << ", ";
+	// std::cerr << "distance? " << dist << ", ";
+	// return lol;
 }
 
-template <class VertexRange>
-Mesh projection(const Mesh& mesh1, const VertexRange& mesh1_vrange, const Mesh& mesh2,
-				const VertexRange& mesh2_vrange)
-{
-	Mesh copy_m2 = mesh2;
-	// Calculating normals
-	auto [mesh2_normal_map, mesh2_created] =
-		copy_m2.add_property_map<Mesh::Vertex_index, Vector>("v:normal");
-
-	for(auto vi : mesh2_vrange)
-	{
-		mesh2_normal_map[vi] = CGAL::Polygon_mesh_processing::compute_vertex_normal(vi, copy_m2);
-	}
-	// CGAL::Polygon_mesh_processing::compute_vertex_normals(copy_m2, mesh2_normal_map);
-
-	// Kd-tree indexation
-	Tree kd_tree(mesh2_vrange.begin(), mesh2_vrange.end(), Tree::Splitter(),
-				 TreeTraitsMeshAdapter(copy_m2.points()));
-
-	return projection(mesh1, mesh1_vrange, kd_tree, mesh2_normal_map);
-}
-
-bool is_projection_on_triangle(const Kernel::Point_3& p, const Kernel::Triangle_3& t)
-{
-	auto p_projected = t.supporting_plane().projection(p);
-	return t.has_on(p_projected);
-}
-
-template <class MarkingMap, class Index>
-bool is_marked(const MarkingMap& marking_map, const Index& v, Vertex_mark m)
-
-	template <class SurfaceMesh, class VertexIndexKdTree, class MarkingMap>
-	typename SurfaceMesh::template Property_map<
-		typename SurfaceMesh::Vertex_index, Vertex_mark> marking(SurfaceMesh& M1, SurfaceMesh& M2,
-																 const Tree& M2_tree,
-																 const MarkingMap& M2_marking_map)
+SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, const SM_kd_tree& M2_tree,
+							SM_marking_map& M2_marking_map)
 {
 	auto [marking_map, created] =
-		M1.template add_property_map<typename SurfaceMesh::Vertex_index, Vertex_mark>(
-			"v:mark", Vertex_mark::none);
+		M1.add_property_map<Surface_mesh::Vertex_index, Vertex_mark>("v:mark", Vertex_mark::None);
+
+	// std::vector<Surface_mesh::Vertex_index> test_vertices = {
+	// 	Surface_mesh::Vertex_index(110), Surface_mesh::Vertex_index(220),
+	// 	Surface_mesh::Vertex_index(440), Surface_mesh::Vertex_index(1200),
+	// 	Surface_mesh::Vertex_index(990)};
 
 	for(auto M1_v : M1.vertices())
 	{
-		CGAL::K_neighbor_search<typename Tree::Traits> search(M2_tree, M1.point(M1_v), 2);
+		auto M1_point = M1.point(M1_v);
 
-		auto [M2_v1, M2_dist_squared1] = (*search.begin());
-		auto [M2_v2, M2_dist_squared2] = (*(search.begin() + 1));
+		SM_kd_tree_search search(M2_tree, M1_point, 1, 0, true,
+								 M2_tree.traits().point_property_map());
 
-		auto h1 = M2.halfedge(M2_v1, M2_v2);
-		auto h2 = M2.halfedge(M2_v2, M2_v1);
+		auto [M2_v, M2_dist_squared1] = *(search.begin());
 
-		if(h1 != SurfaceMesh::null_halfedge())
+		// if(M2_marking_map[M2_v] == Vertex_mark::Distant)
+		// 	marking_map[M1_v] = Vertex_mark::Distant;
+		// else
+		// 	marking_map[M1_v] = Vertex_mark::Close;
+
+		// std::cerr << "before faces around target\n";
+
+		auto faces = CGAL::halfedges_around_target(M2_v, M2);
+		// auto faces = CGAL::halfedges_around_target(M1_v, M1);
+		// auto faces = CGAL::halfedges_around_target(M1_v, M2);
+		std::cerr << "nb faces : " << faces.size() << '\n';
+		// std::cerr << "degree v : " << M2.degree(M2_v) << '\n';
+
+		bool found_distant_triangle = false;
+
+		// std::cerr << "before faces iteration\n";
+		for(auto f : faces)
 		{
-			auto vertices = CGAL::vertices_around_target(h1, M2);
-
-			if(vertices.size() == 3 &&
-			   is_projection_on_triangle(p, Triangle_3(vertices[0], vertices[1], vertices[2])))
+			// std::cerr << "before vertices around face\n";
+			// std::cerr << "is_border!\n";
+			// {
+			// size_t on_triangle_count = 0;
+			//
+			if(M2.is_border(f))
 			{
-				for(auto v : vertices)
-				{
-					if(M2_marking_map[v] == close)
-					{
-						M1_marking_map[v] = close
-					}
-				}
+				// 	// f = M2.opposite(f);
+				std::cerr << "[WARNING] border\n";
+				continue;
+			}
+
+			// M2_marking_map[M2.source(f)] = Vertex_mark::Limit;
+
+			// if(!M2.is_border(f))
+			// {
+			auto M2_triangle_vertices = CGAL::vertices_around_face(f, M2);
+			// auto M2_triangle_vertices = CGAL::vertices_around_face(f, M1);
+			// std::cerr << "nb points : " << M2_triangle_vertices.size() << '\n';
+			// // std::cerr << "face size : " << M2_triangle_vertices.size() << '\n';
+
+			// for(auto v : M2_triangle_vertices)
+			// {
+			// 	M2_marking_map[v] = Vertex_mark::Limit;
+			// 	// marking_map[v] = Vertex_mark::Limit;
+			// }
+			// std::cerr << "after vertices around face\n";
+			if(is_point_projected_on_triangle(M2, M2_triangle_vertices, M1_point) &&
+			   is_distant_face(M2_triangle_vertices, M2_marking_map))
+			{
+				// 	// on_triangle_count++;
+				found_distant_triangle = true;
+				break;
 			}
 		}
+		// M2_marking_map[M2_v] = Vertex_mark::Distant;
+		// marking_map[M1_v] = Vertex_mark::Distant;
+		// std::cerr << "triangle process finished\n";
 
-		// if ()
+		if(found_distant_triangle)
+			marking_map[M1_v] = Vertex_mark::Distant;
+		else
+			marking_map[M1_v] = Vertex_mark::Close;
 
-		if(is_projection_on_triangle())
+		// if(M2_marking_map[M2_v] == Vertex_mark::Distant)
+		// else
+		// auto [M2_v2, M2_dist_squared2] = *(search.begin() + 1);
 
-			// double distance = std::sqrt(search.begin()->second);
+		// auto face1 = M2.halfedge(M2_v1, M2_v2);
 
-			if(distance > threshold)
-			{
-				marking_map[v] = Vertex_mark::distant;
-			}
-			else
-			{
-				marking_map[v] = Vertex_mark::close;
-			}
-	}
+		// std::cerr << "halfedge1: ";
+		// std::cerr << "is_null? " << (face1 == Surface_mesh::null_halfedge()) << ", ";
 
-	for(auto v : M1.vertices())
-	{
-		if(marking_map[v] == Vertex_mark::close)
-		{
-			auto around_vertices = CGAL::vertices_around_target(M1.halfedge(v), M1);
+		// if(face1 != Surface_mesh::null_halfedge())
+		// 	std::cerr << "is_border? " << (M2.is_border(face1)) << ", ";
 
-			for(auto i : around_vertices)
-			{
-				if(marking_map[i] == Vertex_mark::distant)
-				{
-					marking_map[v] = Vertex_mark::limit;
-					break;
-				}
-			}
-		}
+		// if(face1 != Surface_mesh::null_halfedge() && !M2.is_border(face1))
+		// {
+		// 	auto M2_triangle_vertices = CGAL::vertices_around_face(face1, M2);
+
+		// 	if(is_point_projected_on_triangle(M2, M2_triangle_vertices, M1_point))
+		// 	{
+		// 		bool is_close = false;
+
+		// 		for(auto M2_v : M2_triangle_vertices)
+		// 		{
+		// 			if(M2_marking_map[M2_v] == Vertex_mark::Close)
+		// 			{
+		// 				is_close = true;
+		// 				break;
+		// 			}
+		// 		}
+
+		// 		if(is_close)
+		// 		{
+		// 			std::cerr << "is_close\n";
+		// 			marking_map[M1_v] = Vertex_mark::Close;
+		// 			continue;
+		// 		}
+		// 	}
+		// }
+
+		// std::cerr << "\nhalfedge2: ";
+		// auto face2 = M2.halfedge(M2_v2, M2_v1);
+		// std::cerr << "is_null? " << (face2 == Surface_mesh::null_halfedge()) << ", ";
+
+		// if(face1 != Surface_mesh::null_halfedge())
+		// 	std::cerr << "is_border? " << (M2.is_border(face2)) << ", ";
+
+		// if(face2 != Surface_mesh::null_halfedge() && !M2.is_border(face2))
+		// {
+		// 	auto M2_triangle_vertices = CGAL::vertices_around_face(face2, M2);
+
+		// 	if(is_point_projected_on_triangle(M2, M2_triangle_vertices, M1_point))
+		// 	{
+		// 		bool is_close = false;
+
+		// 		for(auto M2_v : M2_triangle_vertices)
+		// 		{
+		// 			if(M2_marking_map[M2_v] == Vertex_mark::Close)
+		// 			{
+		// 				is_close = true;
+		// 				break;
+		// 			}
+		// 		}
+
+		// 		if(is_close)
+		// 		{
+		// 			std::cerr << "is_close\n";
+		// 			marking_map[M1_v] = Vertex_mark::Close;
+		// 			continue;
+		// 		}
+		// 	}
+		// }
+
+		// marking_map[M1_v] = Vertex_mark::Distant;
+		// 	std::cerr
+		// << "is_distant\n";
 	}
 
 	return marking_map;
+}
+
+SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2,
+							SM_marking_map& M2_marking_map)
+{
+	SM_kd_tree M2_tree(M2.vertices().begin(), M2.vertices().end(), SM_kd_tree_splitter(),
+					   SM_kd_tree_traits_adapter(M2.points()));
+
+	return mark_regions(M1, M2, M2_tree, M2_marking_map);
+}
+
+SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2,
+									  SM_marking_map& M2_marking_map)
+{
+	auto marking_map = mark_regions(M1, M2, M2_marking_map);
+	return mark_limits(M1, marking_map);
 }
 
 static const char USAGE[] =
@@ -365,12 +275,6 @@ static const char USAGE[] =
       --iterations=<num>  Numbers of iterations during projection
       --version           Show version
 )";
-
-// x: red
-// y: green
-// z: blue
-
-// TODO: METTRE LE BON KERNEL dans mesh_utils
 
 int main(int argc, char const* argv[])
 {
@@ -429,7 +333,7 @@ int main(int argc, char const* argv[])
 
 	////////// MESH IMPORTATION
 
-	std::vector<Mesh> meshes(input_files.size());
+	std::vector<Surface_mesh> meshes(input_files.size());
 	std::vector<std::optional<std::string>> textures(input_files.size());
 
 	std::cerr << "[STATUS] Importing meshes from files...\n";
@@ -438,83 +342,93 @@ int main(int argc, char const* argv[])
 		{
 			Mesh_data data = load_mesh_data(input_files[i]);
 
-			meshes[i] = to_surface_mesh<Mesh>(data);
+			meshes[i] = to_surface_mesh(data);
+			// CGAL::Polygon_mesh_processing::merge_duplicated_vertices_in_boundary_cycles(meshes[i]);
 
-			if(i == 0)
-				set_mesh_color(meshes[i], CGAL::Color(200, 0, 0));
-			else if(i == 1)
-				set_mesh_color(meshes[i], CGAL::Color(0, 200, 0));
-			else
-				set_mesh_color(meshes[i], random_color());
+			// WARNING: force mesh to be geometricaly processable by removing duplicated halfedges
+			CGAL::Polygon_mesh_processing::stitch_borders(meshes[i]);
+			// CGAL::Polygon_mesh_processing::stitch_boundary_cycles(meshes[i]);
+
+			// if(i == 0)
+			// 	set_mesh_color(meshes[i], CGAL::Color(200, 0, 0));
+			// else if(i == 1)
+			// 	set_mesh_color(meshes[i], CGAL::Color(0, 200, 0));
+			// else
+			// 	set_mesh_color(meshes[i], random_color());
 
 			textures[i] = data.texture_path;
 		}
 	}
 
-	std::vector<Mesh> current_close(input_files.size() - 1);
-	std::vector<Mesh> current_distant(input_files.size() - 1);
-	std::vector<Mesh> current_projected(input_files.size() - 1);
+	std::vector<Surface_mesh> current_close(input_files.size() - 1);
+	std::vector<Surface_mesh> current_distant(input_files.size() - 1);
+	std::vector<Surface_mesh> current_projected(input_files.size() - 1);
 
-	std::vector<Mesh> next_close(input_files.size() - 1);
-	std::vector<Mesh> next_distant(input_files.size() - 1);
-	std::vector<Mesh> next_projected(input_files.size() - 1);
-	// std::vector<Mesh> graft_selection_transition(input_files.size() - 1);
+	std::vector<Surface_mesh> next_close(input_files.size() - 1);
+	std::vector<Surface_mesh> next_distant(input_files.size() - 1);
+	std::vector<Surface_mesh> next_projected(input_files.size() - 1);
 
-	// std::vector<Mesh> graft_basis(input_files.size() - 1);
-	// std::vector<Mesh> graft_basis_with_transition(input_files.size() - 1);
-	// std::vector<Mesh> graft_basis_with_transition_projected(input_files.size() - 1);
-	// // std::vector<Mesh> reconstruction(input_files.size() - 1);
+	Surface_mesh reconstruction = meshes[0];
 
-	// reconstruction
+	////////// MESH PROCESSING
 
-	// graft_basis
-
-	////////// MATCH ALGORITHM
-
-	// std::cerr << "Reading initial mesh file...\n";
-	// Mesh_data data	 = load_mesh_data(input_files.front());
-	// Mesh global_mesh = to_surface_mesh<Mesh, Kernel>(data);
-
-	Mesh reconstruction = meshes[0];
-
-	// if(!read_mesh_from(input_files.front(), global_mesh))
-	// 	return EXIT_FAILURE;
-
-	// std::cerr << "Adding global_mesh color property...\n";
-	// auto current_mesh_color = CGAL::Color(0, 0, 255);
-	// set_mesh_color(global_mesh, current_mesh_color);
-
-	// Mesh visualisation = global_mesh;
-	// Mesh old_next	   = global_mesh;
 	std::cerr << "Filtering with threshold = " << threshold << '\n';
 
 	for(size_t i = 1; i < input_files.size(); ++i)
 	{
-		Mesh current_mesh = reconstruction;
-		Mesh next_mesh	  = meshes[i];
+		Surface_mesh current_mesh = reconstruction;
+		Surface_mesh next_mesh	  = meshes[i];
 
-		// std::cerr << "Adding next_mesh color property...\n";
-		// visualisation += translated(next_mesh, Vector(i * 2.1, 0, 0));
+		////////// CURRENT MESH
 
-		std::cerr << "[CURRENT_MESH] total vertices: " << current_mesh.number_of_vertices() << '\n';
+		// std::cerr << "[CURRENT_MESH] total vertices: " << current_mesh.number_of_vertices() <<
+		// '\n';
 
-		std::cerr << "[CURRENT_MESH] Marking...\n";
-		auto current_marking_map = marking(current_mesh, next_mesh, threshold);
+		// std::cerr << "[CURRENT_MESH] Marking...\n";
+		// auto current_marking_map = mark_delimited_regions(current_mesh, next_mesh, threshold);
 
-		std::cerr << "[CURRENT_MESH] Dividing...\n";
-		auto current_division = divide(current_mesh, current_marking_map);
+		// std::cerr << "[CURRENT_MESH] Dividing...\n";
+		// auto current_division = divide(current_mesh, current_marking_map);
 
-		current_close[i - 1]   = current_division.first;
-		current_distant[i - 1] = current_division.second;
+		// current_close[i - 1]   = current_division.first;
+		// current_distant[i - 1] = current_division.second;
+
+		////////// PROJECTION
 
 		std::cerr << "[CURRENT_MESH] Projecting...\n";
-		current_projected[i - 1] =
-			projection(current_mesh, current_mesh.vertices(), next_mesh, next_mesh.vertices());
+		current_projected[i - 1] = projection(current_mesh, next_mesh);
+
+		////////// NEXT MESH
 
 		std::cerr << "[NEXT_MESH] total vertices: " << next_mesh.number_of_vertices() << '\n';
 
 		std::cerr << "[NEXT_MESH] Marking...\n";
-		auto next_marking_map = marking(next_mesh, current_mesh, threshold);
+		auto next_marking_map = mark_delimited_regions(next_mesh, current_mesh, threshold);
+
+		std::cerr << "[CURRENT_MESH] Marking...\n";
+		auto current_marking_map =
+			mark_delimited_regions(current_projected[i - 1], next_mesh, next_marking_map);
+
+		////////// COLORIZE MESHES
+
+		set_mesh_color(current_projected[i - 1],
+					   close_vertices(current_projected[i - 1].vertices(), current_marking_map),
+					   CGAL::Color(150, 0, 0));
+		set_mesh_color(current_projected[i - 1],
+					   limit_vertices(current_projected[i - 1].vertices(), current_marking_map),
+					   CGAL::Color(0, 150, 0));
+		set_mesh_color(current_projected[i - 1],
+					   distant_vertices(current_projected[i - 1].vertices(), current_marking_map),
+					   CGAL::Color(0, 0, 150));
+
+		set_mesh_color(next_mesh, close_vertices(next_mesh.vertices(), next_marking_map),
+					   CGAL::Color(200, 0, 0));
+		set_mesh_color(next_mesh, limit_vertices(next_mesh.vertices(), next_marking_map),
+					   CGAL::Color(0, 200, 0));
+		set_mesh_color(next_mesh, distant_vertices(next_mesh.vertices(), next_marking_map),
+					   CGAL::Color(0, 0, 200));
+
+		////////// DIVIDE MESHES
 
 		std::cerr << "[NEXT_MESH] Dividing...\n";
 		auto next_division = divide(next_mesh, next_marking_map);
@@ -522,152 +436,21 @@ int main(int argc, char const* argv[])
 		next_close[i - 1]	= next_division.first;
 		next_distant[i - 1] = next_division.second;
 
-		// current_marking_map = marking(current_projected[i - 1], current_mesh, threshold);
-		// current_division	= divide(current_projected[i - 1], current_marking_map);
+		std::cerr << "[CURRENT_MESH] Dividing...\n";
+		auto current_division = divide(current_projected[i - 1], current_marking_map);
 
-		// current_close[i - 1]   = current_division.first;
-		// current_distant[i - 1] = current_division.second;
+		current_close[i - 1]   = current_division.first;
+		current_distant[i - 1] = current_division.second;
 
-		// auto distants_points_from_next_mesh =
-		// 	high_pass_filter_dist(graft_basis[i - 1], next_mesh, threshold);
-
-		// filter_out(graft_basis[i - 1], distants_points_from_next_mesh);
-		// graft_basis[i - 1] = current_division.first;
-
-		// threshold   = valeur à partir de laquelles les points de current_mesh sont considérer
-		// proche de next_mesh
-
-		// graft_basis = points de current_mesh qui sont proche de next_mesh
-
-		// graft_basis_with_transition = graft_basis_avec en plus une marge de points à projeté sur
-		// graft_selection
-
-		// auto not_transition_region1 =
-		// 	band_stop_filter_dist(current_mesh, next_mesh, epsilon, threshold);
-		// Mesh transition1 = current_mesh;
-		// filter_out(transition1, not_transition_region1);
-		// set_mesh_color(transition, color_function(current_mesh_color, next_mesh_color));
-		// visualisation += translated(transition1, Vector(-1.05 + i * 2.1, -4.2, 0));
-
-		///////// GRAFT_BASIS_WITH_TRANSITION (what will be used to project on next_mesh)
-
-		// auto distants_points_plus_epsilon_from_next_mesh = high_pass_filter_dist(
-		// 	graft_basis_with_transition[i - 1], next_mesh, threshold + epsilon);
-
-		// filter_out(graft_basis_with_transition[i - 1],
-		// distants_points_plus_epsilon_from_next_mesh);
-		// graft_basis_with_transition[i - 1] =
-
-		// // other
-		// Mesh temp	 = old_next;
-		// auto too_far = high_pass_filter_dist(temp, next_mesh, threshold);
-		// filter_out(temp, too_far);
-
-		// auto high_dist_vertices = high_pass_filter_dist(current_mesh, next_mesh, epsilon);
-		// // auto high_dist_vertices = high_pass_filter_dist(current_mesh, next_mesh, threshold);
-
-		// filter_out(current_mesh, high_dist_vertices);
-
-		// write_mesh_to("current_mesh_" + std::to_string(i) + ".off", current_mesh);
-		// set_mesh_vcolor(transition, nm_vcolor, CGAL::Color(0, 255, 0));
-
-		// current_mesh += transition;
-		// print_state(current_mesh);
-		// }
-
-		std::cerr << "Removing points from Mesh" << i + 1 << " that are too close from Mesh" << i
-				  << '\n';
-		// {
-		std::cerr << "Total vertices: " << next_mesh.number_of_vertices() << '\n';
-
-		///////// GRAFT_SELECTION (what we keep from next_mesh)
-
-		// auto close_points_from_current_mesh =
-		// 	low_pass_filter_dist(graft_selection[i - 1], current_mesh, threshold);
-
-		// filter_out(graft_selection[i - 1], close_points_from_current_mesh);
-		// graft_selection[i - 1] = next_division.second;
-
-		///////// GRAFT_SELECTION_TRANSITION (what we projection graft_basis_transition on)
-
-		// auto distants_points_less_epsilon_from_current_mesh =
-		// 	band_stop_filter_dist(graft_selection_transition[i - 1], current_mesh,
-		// 						  threshold - epsilon, threshold + epsilon);
-
-		// filter_out(graft_selection_transition[i - 1],
-		// filter_out(graft_selection_transition[i - 1],
-		// 		   distants_points_less_epsilon_from_current_mesh);
-		// auto not_transition_region2 = low_pass_filter_dist(next_mesh, global_mesh, epsilon);
-
-		// Mesh transition2 = next_mesh;
-		// filter_out(transition2, not_transition_region2);
-
-		// // // write_mesh_to("transition_2.off", transition);
-		// visualisation += translated(transition2, Vector(-1.05 + i * 2.1, -4.2, 0));
-		// visualisation += translated(transition2, Vector(-1.05 + i * 2.1, -6.3, 0));
-		// graft_selection[i - 1] = transition2;
-		// write_mesh_to("next_mesh_transition" + std::to_string(i + 1) + ".off", transition2);
-
-		// old_next = next_mesh;
-
-		// auto low_dist_vertices = low_pass_filter_dist(next_mesh, global_mesh, epsilon);
-		// filter_out(next_mesh, low_dist_vertices);
-
-		// write_mesh_to("next_" + std::to_string(i) + ".off", temp);
-
-		// auto proj_trans =
-		// 	projection(transition1, high_pass_filter_dist(transition1, global_mesh, 0), next_mesh,
-		// 			   next_mesh.vertices());
-
-		// high_pass_filter_dist(graft_basis_with_transition[i - 1], next_mesh, threshold)
-
-		///////// GRAFT_BASIS_WITH_TRANSITION_PROJECTED (projection on next_mesh)
-
-		// auto projected_graft = projection(
-		// 	graft_basis_with_transition[i - 1],
-		// 	high_pass_filter_dist(graft_basis_with_transition[i - 1], next_mesh, proj_start),
-		// 	next_mesh, next_mesh.vertices());
-		//
-		// auto projected_graft = projection(
-		// 	graft_basis_with_transition[i - 1],
-		// 	high_pass_filter_dist(graft_basis_with_transition[i - 1], next_mesh, proj_start),
-		// 	graft_selection_transition[i - 1], graft_selection_transition[i - 1].vertices());
-
-		// auto proj_all = projection(temp, high_pass_filter_dist(temp, old_next, epsilon),
-		// old_next, 						   old_next.vertices());
-
-		// reconstruction[i - 1] += graft_basis[i - 1];
-		// reconstruction[i - 1] += graft_selection[i - 1];
-		// write_mesh_to("projection_" + std::to_string(i) + ".off", proj_all);
-
-		// bool success = CGAL::Polygon_mesh_processing::fair(
-		// 	proj_all, band_pass_filter_dist(proj_all, old_next, epsilon - 0.003, epsilon + 0.003));
-		// std::cout << "Fairing : " << (success ? "succeeded" : "failed") << std::endl;
-
-		// write_mesh_to("projection_fair_" + std::to_string(i) + ".off", proj_all);
-
-		// visualisation += translated(proj_all, Vector(-1.05 + i * 2.1, -6.3, 0));
-		// visualisation += translated(proj_all, Vector(-1.05 + i * 2.1, -8.4, 0));
-		// set_mesh_color(old_next, color_function(current_mesh_color, next_mesh_color));
-
-		// current_mesh_color = next_mesh_color;
-		// current_mesh_file = next_mesh_file;
-		// global_mesh = current_mesh;
-
-		//////////// GLOBAL_MESH (FUSION graft_basis_with_transition_projected and graft_selection)
+		//////////// RENCONSTRUCTED MESH
 
 		reconstruction = current_close[i - 1];
 		reconstruction += next_distant[i - 1];
-
-		// visualisation += translated(global_mesh, Vector(-1.05 + i * 2.1, -2.1, 0));
 	}
 
 	////////// MESH VISUALISATION
 
 	std::cerr << "[STATUS] Allocating meshes on gpu...\n";
-
-	// mesh_draw(visualisation);
-	// CGAL::draw(global_mesh);
 
 	int qargc			 = 1;
 	const char* qargv[2] = {"surface_mesh_viewer", "\0"};
@@ -676,40 +459,25 @@ int main(int argc, char const* argv[])
 
 	MeshViewer viewer;
 
-	viewer.setWindowTitle("MeshViewer");
+	viewer.setWindowTitle("Surface_meshViewer");
 
 	viewer.show(); // Create Opengl Context
 
 	/// 6 : reconstruction
 
+	// TODO: enlever triangle qui se superpose en parcourant les limites
+
 	for(size_t i = 0; i < meshes.size() - 1; ++i)
 	{
-		/// 1 : original 0
-		/// 4 : original 1
-		/// 2 : base de grèfe + transition
-		/// 5 : zone à gardé
-		/// 2 : base de grèfe + transition projeté sur original 1
+		// viewer.add(to_mesh_data(meshes[i], textures[i]));
+		// viewer.add(to_mesh_data(meshes[i + 1], textures[i]));
+		viewer.add(to_mesh_data(next_close[i], textures[i]));
+		viewer.add(to_mesh_data(next_distant[i], textures[i]));
 
-		// viewer.add(to_mesh_data<Mesh>(meshes[i], textures[i]));
-		// viewer.add(to_mesh_data<Mesh>(meshes[i + 1], textures[i + 1]));
+		viewer.add(to_mesh_data(current_close[i], textures[i]));
+		viewer.add(to_mesh_data(current_distant[i], textures[i]));
 
-		viewer.add(to_mesh_data<Mesh>(current_close[i], textures[i]));
-		viewer.add(to_mesh_data<Mesh>(current_distant[i], textures[i]));
-
-		viewer.add(to_mesh_data<Mesh>(next_close[i], textures[i]));
-		viewer.add(to_mesh_data<Mesh>(next_distant[i], textures[i]));
-
-		viewer.add(to_mesh_data<Mesh>(current_projected[i], textures[i]));
-
-		// viewer.add(to_mesh_data<Mesh>(next_projected[i], textures[i]));
-
-		// viewer.add(to_mesh_data<Mesh>(graft_basis[i], textures[i]));
-		// viewer.add(to_mesh_data<Mesh>(graft_selection[i], textures[i + 1]));
-		// viewer.add(to_mesh_data<Mesh>(graft_basis_with_transition_projected[i], textures[i]));
-		// viewer.add(to_mesh_data<Mesh>(graft_selection_transition[i], textures[i + 1]));
-		// viewer.add(to_mesh_data<Mesh>(graft_basis_with_transition[i], textures[i]));
-
-		// viewer.add(to_mesh_data<Mesh, Kernel>(reconstruction[i]));
+		// viewer.add(to_mesh_data(current_projected[i], textures[i]));
 	}
 
 	return application.exec();

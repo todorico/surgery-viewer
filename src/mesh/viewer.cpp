@@ -1,10 +1,6 @@
-#ifndef MESH_VIEWER_INL
-#define MESH_VIEWER_INL
+// #ifndef MESH_VIEWER_INL
+// #define MESH_VIEWER_INL
 
-// #include "model.h"
-
-// #include "mesh_data.hpp"
-#include "qglmesh.hpp"
 #include "viewer.hpp"
 
 // GLM
@@ -458,4 +454,4 @@ void MeshViewer::keyPressEvent(QKeyEvent* e)
 	}
 }
 
-#endif // MESH_VIEWER_INL
+// #endif // MESH_VIEWER_INL

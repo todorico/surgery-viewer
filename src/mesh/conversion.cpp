@@ -1,34 +1,23 @@
-#ifndef MESH_CONVERT_INL
-#define MESH_CONVERT_INL
+// #ifndef MESH_CONVERT_INL
+// #define MESH_CONVERT_INL
 
 #include "conversion.hpp"
 
 // CGAL
 
 #include <CGAL/IO/Color.h>
-#include <CGAL/Kernel_traits.h>
-#include <CGAL/Surface_mesh.h>
 #include <CGAL/boost/graph/iterator.h>
 
-// STD
-
-#include <map>
-
-template <class SurfaceMesh>
-SurfaceMesh to_surface_mesh(const Mesh_data& mesh_data)
+Surface_mesh to_surface_mesh(const Mesh_data& mesh_data)
 {
-	// using SurfaceMesh = typename CGAL::Surface_mesh<Point>;
-	using point_type = typename SurfaceMesh::Point;
-	using size_type	 = typename SurfaceMesh::size_type;
+	using Vertex_index = Surface_mesh::Vertex_index;
+	using size_type	   = Surface_mesh::size_type;
 
-	using Kernel = typename CGAL::Kernel_traits<point_type>::Kernel;
+	using Vector_3 = Kernel::Vector_3;
+	using Vector_2 = Kernel::Vector_2;
+	using Color	   = CGAL::Color;
 
-	using Vertex_index = typename SurfaceMesh::Vertex_index;
-	using Vector_3	   = typename Kernel::Vector_3;
-	using Vector_2	   = typename Kernel::Vector_2;
-	using Color		   = CGAL::Color;
-
-	SurfaceMesh mesh;
+	Surface_mesh mesh;
 
 	if(mesh_data.positions.has_value())
 	{
@@ -112,17 +101,14 @@ SurfaceMesh to_surface_mesh(const Mesh_data& mesh_data)
 	return mesh;
 }
 
-template <class SurfaceMesh>
-Mesh_data to_mesh_data(const SurfaceMesh& mesh, std::optional<std::string> texture_path)
+Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> texture_path)
 {
-	using point_type = typename SurfaceMesh::Point;
-	using size_type	 = typename SurfaceMesh::size_type;
+	using Vertex_index = Surface_mesh::Vertex_index;
+	using size_type	   = Surface_mesh::size_type;
 
-	using Kernel	   = typename CGAL::Kernel_traits<point_type>::Kernel;
-	using Vertex_index = typename SurfaceMesh::Vertex_index;
-	using Vector_3	   = typename Kernel::Vector_3;
-	using Vector_2	   = typename Kernel::Vector_2;
-	using Color		   = CGAL::Color;
+	using Vector_3 = Kernel::Vector_3;
+	using Vector_2 = Kernel::Vector_2;
+	using Color	   = CGAL::Color;
 
 	if(mesh.number_of_vertices() == 0)
 	{
@@ -256,10 +242,9 @@ Mesh_data to_mesh_data(const SurfaceMesh& mesh, std::optional<std::string> textu
 	return Mesh_data{positions, normals, colors, texcoords, triangulated_faces, texture_path};
 }
 
-template <class SurfaceMesh>
-Mesh_data to_mesh_data(const SurfaceMesh& mesh)
+Mesh_data to_mesh_data(const Surface_mesh& mesh)
 {
-	return to_mesh_data<SurfaceMesh>(mesh, {});
+	return to_mesh_data(mesh, {});
 }
 
-#endif // MESH_CONVERT_INL
+// #endif // MESH_CONVERT_INL
