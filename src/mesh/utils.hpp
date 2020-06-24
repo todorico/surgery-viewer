@@ -24,9 +24,7 @@ Surface_mesh filtered(const Surface_mesh& mesh, const VertexRange& vertices);
 
 // // DIVIDE
 
-std::pair<Surface_mesh, Surface_mesh>
-	divide(const Surface_mesh& mesh,
-		   const Surface_mesh::Property_map<Surface_mesh::Vertex_index, Vertex_mark>& marking_map);
+std::pair<Surface_mesh, Surface_mesh> divide(const Surface_mesh& mesh);
 
 // // BAND-PASS
 

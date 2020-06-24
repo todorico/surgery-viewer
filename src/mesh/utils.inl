@@ -86,12 +86,10 @@ Surface_mesh filtered(const Surface_mesh& mesh, const VertexRange& vertices)
 
 // DIVIDE
 
-std::pair<Surface_mesh, Surface_mesh>
-	divide(const Surface_mesh& mesh,
-		   const Surface_mesh::Property_map<Surface_mesh::Vertex_index, Vertex_mark>& marking_map)
+std::pair<Surface_mesh, Surface_mesh> divide(const Surface_mesh& mesh)
 {
-	Surface_mesh M1_close	= filtered(mesh, distant_vertices(mesh.vertices(), marking_map));
-	Surface_mesh M1_distant = filtered(mesh, close_vertices(mesh.vertices(), marking_map));
+	Surface_mesh M1_close	= filtered(mesh, distant_vertices(mesh));
+	Surface_mesh M1_distant = filtered(mesh, close_vertices(mesh));
 
 	return {M1_close, M1_distant};
 }

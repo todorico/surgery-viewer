@@ -72,11 +72,11 @@ int main(int argc, char const* argv[])
 
 	auto M1_marking_map = mark_delimited_regions(meshes[0], meshes[1], threshold);
 
-	auto M1_division = divide(meshes[0], M1_marking_map);
+	auto M1_division = divide(meshes[0]);
 
 	auto M2_marking_map = mark_delimited_regions(meshes[1], meshes[0], threshold);
 
-	auto M2_division = divide(meshes[1], M2_marking_map);
+	auto M2_division = divide(meshes[1]);
 
 	////////// MESHES VISUALISATION
 

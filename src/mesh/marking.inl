@@ -9,6 +9,16 @@
 // CGAL
 #include <CGAL/boost/graph/iterator.h>
 
+SM_marking_map get_marking_map(const Surface_mesh& mesh)
+{
+	auto [marking_map, marking_map_exist] =
+		mesh.property_map<Surface_mesh::Vertex_index, Vertex_mark>("v:mark");
+
+	assert(marking_map_exist);
+
+	return marking_map;
+}
+
 SM_marking_map mark_regions(Surface_mesh& M1, const SM_kd_tree& M2_tree, double threshold)
 {
 	auto [marking_map, created] =
@@ -76,38 +86,52 @@ SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2, 
 }
 
 template <class VertexRange>
-auto marked_vertices(const VertexRange& vertices, const SM_marking_map& marking_map,
+auto marked_vertices(const Surface_mesh& mesh, const VertexRange& mesh_vertices,
 					 const Vertex_mark mark)
 {
 	std::vector<Surface_mesh::Vertex_index> result;
+	auto marking_map = get_marking_map(mesh);
 
-	std::copy_if(vertices.begin(), vertices.end(), std::back_inserter(result),
+	std::copy_if(mesh_vertices.begin(), mesh_vertices.end(), std::back_inserter(result),
 				 [&, mark](auto v) { return marking_map[v] == mark; });
 
 	return result;
 }
 
-template <class VertexRange>
-auto none_vertices(const VertexRange& vertices, const SM_marking_map& marking_map)
+auto none_vertices(const Surface_mesh& mesh)
 {
-	return marked_vertices(vertices, marking_map, Vertex_mark::None);
+	return marked_vertices(mesh, mesh.vertices(), Vertex_mark::None);
 }
 
-template <class VertexRange>
-auto close_vertices(const VertexRange& vertices, const SM_marking_map& marking_map)
+auto close_vertices(const Surface_mesh& mesh)
 {
-	return marked_vertices(vertices, marking_map, Vertex_mark::Close);
-}
-template <class VertexRange>
-auto limit_vertices(const VertexRange& vertices, const SM_marking_map& marking_map)
-{
-	return marked_vertices(vertices, marking_map, Vertex_mark::Limit);
+	return marked_vertices(mesh, mesh.vertices(), Vertex_mark::Close);
 }
 
-template <class VertexRange>
-auto distant_vertices(const VertexRange& vertices, const SM_marking_map& marking_map)
+auto limit_vertices(const Surface_mesh& mesh)
 {
-	return marked_vertices(vertices, marking_map, Vertex_mark::Distant);
+	return marked_vertices(mesh, mesh.vertices(), Vertex_mark::Limit);
 }
+
+auto distant_vertices(const Surface_mesh& mesh)
+{
+	return marked_vertices(mesh, mesh.vertices(), Vertex_mark::Distant);
+}
+// template <class VertexRange>
+// auto close_vertices(const VertexRange& vertices, const SM_marking_map& marking_map)
+// {
+// 	return marked_vertices(vertices, marking_map, Vertex_mark::Close);
+// }
+// template <class VertexRange>
+// auto limit_vertices(const VertexRange& vertices, const SM_marking_map& marking_map)
+// {
+// 	return marked_vertices(vertices, marking_map, Vertex_mark::Limit);
+// }
+
+// template <class VertexRange>
+// auto distant_vertices(const VertexRange& vertices, const SM_marking_map& marking_map)
+// {
+// 	return marked_vertices(vertices, marking_map, Vertex_mark::Distant);
+// }
 
 #endif // MESH_MARKING_INL

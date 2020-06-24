@@ -11,33 +11,74 @@
 // CGAL
 #include <CGAL/Polygon_mesh_processing/merge_border_vertices.h>
 // #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
+#include <boost/range/join.hpp>
 
 template <class VertexRange>
-bool is_distant_face(const VertexRange& face_vertices, const SM_marking_map& marking_map)
+bool is_not_close_face(const VertexRange& face_vertices, const SM_marking_map& marking_map)
 {
-	size_t count_close = 0;
+	for(auto v : face_vertices)
+	{
+		if(marking_map[v] == Vertex_mark::Close)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+template <class VertexRange>
+bool is_not_limit_face(const VertexRange& face_vertices, const SM_marking_map& marking_map)
+{
+	for(auto v : face_vertices)
+	{
+		if(marking_map[v] == Vertex_mark::Limit)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+template <class VertexRange>
+bool is_limit_face(const VertexRange& face_vertices, const SM_marking_map& marking_map)
+{
+	bool found_distant = false;
+	bool found_close   = false;
+	bool found_limit   = false;
 
 	for(auto v : face_vertices)
 	{
 		if(marking_map[v] == Vertex_mark::Close)
 		{
-			++count_close;
+			found_close = true;
+		}
+		else if(marking_map[v] == Vertex_mark::Distant)
+		{
+			found_distant = true;
+		}
+		else
+		{
+			found_limit = true;
 		}
 	}
 
-	return count_close == 0;
+	// TODO: CHECK CONDITION
+
+	return (found_close && found_distant) || (!found_close && !found_distant && found_limit);
 }
 
 template <class VertexRange>
 bool is_point_projected_on_triangle(const Surface_mesh& mesh, const VertexRange& triangle_vertices,
 									const Kernel::Point_3& p)
 {
-	// if(triangle_vertices.size() != 3)
-	// {
-	// 	std::cerr << "[ERROR] triangle_vertices must be of size 3 but is of size "
-	// 			  << triangle_vertices.size() << '\n';
-	// 	exit(EXIT_FAILURE);
-	// }
+	if(triangle_vertices.size() != 3)
+	{
+		std::cerr << "[ERROR] triangle_vertices must be of size 3 but is of size "
+				  << triangle_vertices.size() << '\n';
+		exit(EXIT_FAILURE);
+	}
 
 	// Get triangle points
 
@@ -52,47 +93,20 @@ bool is_point_projected_on_triangle(const Surface_mesh& mesh, const VertexRange&
 	// Create triangle
 
 	Kernel::Triangle_3 triangle(a, b, c);
-	// auto p_projected = triangle.supporting_plane().projection(p);
 
-	// Project point on triangle plane
+	// Create triangle perpendicular line
 
 	auto perpendicular_line = triangle.supporting_plane().perpendicular_line(p);
-	// auto perpendicular_line = Kernel::Line_3(p, p_projected);
-	// auto orthogonal_line
 
 	return CGAL::do_intersect(perpendicular_line, triangle);
-
-	// auto result = CGAL::intersection(perpendicular_line, triangle);
-
-	// if(result.has_value())
-	// {
-	// 	if(auto segment = boost::get<Kernel::Segment_3>(&*result))
-	// 	{
-	// 		return segment->has_on(p);
-	// 	}
-	// 	else
-	// 	{
-	// 		// auto point = boost::get<Kernel::Point_3>(&*result);
-	// 		return true;
-	// 	}
-	// }
-
-	// return false;
-	// auto dist = Kernel::Vector_3(p, p_projected).squared_length();
-	// return dist < 0.00000001;
-	// bool lol  = triangle.has_on(p_projected) || dist < 0.0000000001;
-
-	// std::cerr << "on_triangle? " << lol << ", ";
-	// std::cerr << "distance? " << dist << ", ";
-	// return lol;
 }
 
-SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, const SM_kd_tree& M2_tree,
-							SM_marking_map& M2_marking_map)
+SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, const SM_kd_tree& M2_tree)
 {
-	auto [marking_map, created] =
+	auto [M1_marking_map, created] =
 		M1.add_property_map<Surface_mesh::Vertex_index, Vertex_mark>("v:mark", Vertex_mark::None);
 
+	auto M2_marking_map = get_marking_map(M2);
 	// std::vector<Surface_mesh::Vertex_index> test_vertices = {
 	// 	Surface_mesh::Vertex_index(110), Surface_mesh::Vertex_index(220),
 	// 	Surface_mesh::Vertex_index(440), Surface_mesh::Vertex_index(1200),
@@ -107,161 +121,140 @@ SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, const SM_k
 
 		auto [M2_v, M2_dist_squared1] = *(search.begin());
 
-		// if(M2_marking_map[M2_v] == Vertex_mark::Distant)
-		// 	marking_map[M1_v] = Vertex_mark::Distant;
-		// else
-		// 	marking_map[M1_v] = Vertex_mark::Close;
-
-		// std::cerr << "before faces around target\n";
-
 		auto faces = CGAL::halfedges_around_target(M2_v, M2);
-		// auto faces = CGAL::halfedges_around_target(M1_v, M1);
-		// auto faces = CGAL::halfedges_around_target(M1_v, M2);
-		std::cerr << "nb faces : " << faces.size() << '\n';
+		// auto faces = boost::join(CGAL::halfedges_around_target(M2_v, M2),
+		// 						 CGAL::halfedges_around_face(M2.halfedge(M2_v), M2));
+
+		// std::cerr << "nb faces : " << faces.size() << '\n';
 		// std::cerr << "degree v : " << M2.degree(M2_v) << '\n';
 
-		bool found_distant_triangle = false;
+		bool found_distant_triangle	 = false;
+		bool found_matching_triangle = false;
 
-		// std::cerr << "before faces iteration\n";
 		for(auto f : faces)
 		{
-			// std::cerr << "before vertices around face\n";
-			// std::cerr << "is_border!\n";
-			// {
-			// size_t on_triangle_count = 0;
-			//
 			if(M2.is_border(f))
 			{
-				// 	// f = M2.opposite(f);
-				std::cerr << "[WARNING] border\n";
+				std::cerr << "[WARNING] skipping border halfedge\n";
 				continue;
 			}
 
-			// M2_marking_map[M2.source(f)] = Vertex_mark::Limit;
-
-			// if(!M2.is_border(f))
-			// {
 			auto M2_triangle_vertices = CGAL::vertices_around_face(f, M2);
 			// auto M2_triangle_vertices = CGAL::vertices_around_face(f, M1);
 			// std::cerr << "nb points : " << M2_triangle_vertices.size() << '\n';
 			// // std::cerr << "face size : " << M2_triangle_vertices.size() << '\n';
 
-			// for(auto v : M2_triangle_vertices)
-			// {
-			// 	M2_marking_map[v] = Vertex_mark::Limit;
-			// 	// marking_map[v] = Vertex_mark::Limit;
-			// }
+			found_matching_triangle =
+				is_point_projected_on_triangle(M2, M2_triangle_vertices, M1_point);
+
 			// std::cerr << "after vertices around face\n";
-			if(is_point_projected_on_triangle(M2, M2_triangle_vertices, M1_point) &&
-			   is_distant_face(M2_triangle_vertices, M2_marking_map))
+			if(found_matching_triangle && is_not_close_face(M2_triangle_vertices, M2_marking_map))
 			{
-				// 	// on_triangle_count++;
 				found_distant_triangle = true;
 				break;
 			}
 		}
-		// M2_marking_map[M2_v] = Vertex_mark::Distant;
-		// marking_map[M1_v] = Vertex_mark::Distant;
-		// std::cerr << "triangle process finished\n";
+
+		if(!found_matching_triangle)
+		{
+			std::cerr << "[WARNING] could not found matching triangle for vertex " << M1_v << '\n';
+		}
 
 		if(found_distant_triangle)
-			marking_map[M1_v] = Vertex_mark::Distant;
+			M1_marking_map[M1_v] = Vertex_mark::Distant;
 		else
-			marking_map[M1_v] = Vertex_mark::Close;
-
-		// if(M2_marking_map[M2_v] == Vertex_mark::Distant)
-		// else
-		// auto [M2_v2, M2_dist_squared2] = *(search.begin() + 1);
-
-		// auto face1 = M2.halfedge(M2_v1, M2_v2);
-
-		// std::cerr << "halfedge1: ";
-		// std::cerr << "is_null? " << (face1 == Surface_mesh::null_halfedge()) << ", ";
-
-		// if(face1 != Surface_mesh::null_halfedge())
-		// 	std::cerr << "is_border? " << (M2.is_border(face1)) << ", ";
-
-		// if(face1 != Surface_mesh::null_halfedge() && !M2.is_border(face1))
-		// {
-		// 	auto M2_triangle_vertices = CGAL::vertices_around_face(face1, M2);
-
-		// 	if(is_point_projected_on_triangle(M2, M2_triangle_vertices, M1_point))
-		// 	{
-		// 		bool is_close = false;
-
-		// 		for(auto M2_v : M2_triangle_vertices)
-		// 		{
-		// 			if(M2_marking_map[M2_v] == Vertex_mark::Close)
-		// 			{
-		// 				is_close = true;
-		// 				break;
-		// 			}
-		// 		}
-
-		// 		if(is_close)
-		// 		{
-		// 			std::cerr << "is_close\n";
-		// 			marking_map[M1_v] = Vertex_mark::Close;
-		// 			continue;
-		// 		}
-		// 	}
-		// }
-
-		// std::cerr << "\nhalfedge2: ";
-		// auto face2 = M2.halfedge(M2_v2, M2_v1);
-		// std::cerr << "is_null? " << (face2 == Surface_mesh::null_halfedge()) << ", ";
-
-		// if(face1 != Surface_mesh::null_halfedge())
-		// 	std::cerr << "is_border? " << (M2.is_border(face2)) << ", ";
-
-		// if(face2 != Surface_mesh::null_halfedge() && !M2.is_border(face2))
-		// {
-		// 	auto M2_triangle_vertices = CGAL::vertices_around_face(face2, M2);
-
-		// 	if(is_point_projected_on_triangle(M2, M2_triangle_vertices, M1_point))
-		// 	{
-		// 		bool is_close = false;
-
-		// 		for(auto M2_v : M2_triangle_vertices)
-		// 		{
-		// 			if(M2_marking_map[M2_v] == Vertex_mark::Close)
-		// 			{
-		// 				is_close = true;
-		// 				break;
-		// 			}
-		// 		}
-
-		// 		if(is_close)
-		// 		{
-		// 			std::cerr << "is_close\n";
-		// 			marking_map[M1_v] = Vertex_mark::Close;
-		// 			continue;
-		// 		}
-		// 	}
-		// }
-
-		// marking_map[M1_v] = Vertex_mark::Distant;
-		// 	std::cerr
-		// << "is_distant\n";
+			M1_marking_map[M1_v] = Vertex_mark::Close;
 	}
 
-	return marking_map;
+	return M1_marking_map;
 }
 
-SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2,
-							SM_marking_map& M2_marking_map)
+SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2)
 {
 	SM_kd_tree M2_tree(M2.vertices().begin(), M2.vertices().end(), SM_kd_tree_splitter(),
 					   SM_kd_tree_traits_adapter(M2.points()));
 
-	return mark_regions(M1, M2, M2_tree, M2_marking_map);
+	return mark_regions(M1, M2, M2_tree);
 }
 
-SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2,
-									  SM_marking_map& M2_marking_map)
+SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2)
 {
-	auto marking_map = mark_regions(M1, M2, M2_marking_map);
-	return mark_limits(M1, marking_map);
+	auto M1_marking_map = mark_regions(M1, M2);
+	return mark_limits(M1, M1_marking_map);
+}
+
+template <class VertexRange>
+Surface_mesh stick_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
+							const Surface_mesh M2, const SM_kd_tree& M2_tree)
+{
+	Surface_mesh result = M1;
+	auto M1_marking_map = get_marking_map(result);
+	// auto M2_marking_map = get_marking_map(M2);
+
+	for(auto M1_v : M1_vertices)
+	{
+		// auto M1_point = M1.point(M1_v);
+
+		SM_kd_tree_search search(M2_tree, result.point(M1_v), 1, 0, true,
+								 M2_tree.traits().point_property_map());
+
+		auto [M2_v, M2_dist_squared] = *(search.begin());
+
+		result.point(M1_v)	 = M2_tree.traits().point_property_map()[M2_v];
+		M1_marking_map[M1_v] = Vertex_mark::Limit;
+	}
+
+	return result;
+}
+
+template <class VertexRange>
+Surface_mesh stick_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
+							const Surface_mesh& M2, const VertexRange& M2_vertices)
+{
+	SM_kd_tree M2_tree(M2_vertices.begin(), M2_vertices.end(), SM_kd_tree_splitter(),
+					   SM_kd_tree_traits_adapter(M2.points()));
+
+	return stick_vertices(M1, M1_vertices, M2, M2_tree);
+}
+
+// renvoie les vertex de m2 qui ne sont pas coller aux vertex de M1
+
+template <class VertexRange>
+auto not_sticked_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
+						  const SM_kd_tree& M2_tree)
+{
+	std::vector<Surface_mesh::Vertex_index> result;
+
+	std::copy_if(M1_vertices.begin(), M1_vertices.end(), std::back_inserter(result),
+				 [&](auto M1_v) {
+					 SM_kd_tree_search search(M2_tree, M1.point(M1_v), 1, 0, true,
+											  M2_tree.traits().point_property_map());
+
+					 auto [M2_v, M2_dist_squared] = *(search.begin());
+
+					 return M2_dist_squared > 0;
+				 });
+
+	return result;
+}
+
+template <class VertexRange>
+auto not_sticked_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
+						  const Surface_mesh& M2, const VertexRange& M2_vertices)
+{
+	SM_kd_tree M2_tree(M2_vertices.begin(), M2_vertices.end(), SM_kd_tree_splitter(),
+					   SM_kd_tree_traits_adapter(M2.points()));
+
+	return not_sticked_vertices(M1, M1_vertices, M2_tree);
+}
+
+Surface_mesh fill_holes(const Surface_mesh& M1, const Surface_mesh& M2)
+{
+	// point limites de M2 qui ne sont pas collé a M1
+	auto M2_not_sticked_vertices =
+		not_sticked_vertices(M2, limit_vertices(M2), M1, distant_vertices(M1));
+
+	return stick_vertices(M1, distant_vertices(M1), M2, M2_not_sticked_vertices);
 }
 
 static const char USAGE[] =
@@ -403,41 +396,50 @@ int main(int argc, char const* argv[])
 		std::cerr << "[NEXT_MESH] total vertices: " << next_mesh.number_of_vertices() << '\n';
 
 		std::cerr << "[NEXT_MESH] Marking...\n";
-		auto next_marking_map = mark_delimited_regions(next_mesh, current_mesh, threshold);
+		mark_delimited_regions(next_mesh, current_mesh, threshold);
 
 		std::cerr << "[CURRENT_MESH] Marking...\n";
-		auto current_marking_map =
-			mark_delimited_regions(current_projected[i - 1], next_mesh, next_marking_map);
+		mark_delimited_regions(current_projected[i - 1], next_mesh);
+
+		////////// STICK CURRENT MESH
+
+		std::cerr << "[CURRENT_MESH] sticking vertices...\n";
+
+		current_projected[i - 1] =
+			stick_vertices(current_projected[i - 1], limit_vertices(current_projected[i - 1]),
+						   next_mesh, limit_vertices(next_mesh));
+
+		std::cerr << "[CURRENT_MESH] filling holes...\n";
+
+		// [WARNING] attention à ne pas confondre current_marking_map et projected_marking_map
+
+		current_projected[i - 1] = fill_holes(current_projected[i - 1], next_mesh);
+
+		// mark_delimited_regions(current_projected[i - 1], next_mesh);
 
 		////////// COLORIZE MESHES
 
-		set_mesh_color(current_projected[i - 1],
-					   close_vertices(current_projected[i - 1].vertices(), current_marking_map),
+		set_mesh_color(current_projected[i - 1], close_vertices(current_projected[i - 1]),
 					   CGAL::Color(150, 0, 0));
-		set_mesh_color(current_projected[i - 1],
-					   limit_vertices(current_projected[i - 1].vertices(), current_marking_map),
+		set_mesh_color(current_projected[i - 1], limit_vertices(current_projected[i - 1]),
 					   CGAL::Color(0, 150, 0));
-		set_mesh_color(current_projected[i - 1],
-					   distant_vertices(current_projected[i - 1].vertices(), current_marking_map),
+		set_mesh_color(current_projected[i - 1], distant_vertices(current_projected[i - 1]),
 					   CGAL::Color(0, 0, 150));
 
-		set_mesh_color(next_mesh, close_vertices(next_mesh.vertices(), next_marking_map),
-					   CGAL::Color(200, 0, 0));
-		set_mesh_color(next_mesh, limit_vertices(next_mesh.vertices(), next_marking_map),
-					   CGAL::Color(0, 200, 0));
-		set_mesh_color(next_mesh, distant_vertices(next_mesh.vertices(), next_marking_map),
-					   CGAL::Color(0, 0, 200));
+		set_mesh_color(next_mesh, close_vertices(next_mesh), CGAL::Color(200, 0, 0));
+		set_mesh_color(next_mesh, limit_vertices(next_mesh), CGAL::Color(0, 200, 0));
+		set_mesh_color(next_mesh, distant_vertices(next_mesh), CGAL::Color(0, 0, 200));
 
 		////////// DIVIDE MESHES
 
 		std::cerr << "[NEXT_MESH] Dividing...\n";
-		auto next_division = divide(next_mesh, next_marking_map);
+		auto next_division = divide(next_mesh);
 
 		next_close[i - 1]	= next_division.first;
 		next_distant[i - 1] = next_division.second;
 
 		std::cerr << "[CURRENT_MESH] Dividing...\n";
-		auto current_division = divide(current_projected[i - 1], current_marking_map);
+		auto current_division = divide(current_projected[i - 1]);
 
 		current_close[i - 1]   = current_division.first;
 		current_distant[i - 1] = current_division.second;
@@ -477,7 +479,7 @@ int main(int argc, char const* argv[])
 		viewer.add(to_mesh_data(current_close[i], textures[i]));
 		viewer.add(to_mesh_data(current_distant[i], textures[i]));
 
-		// viewer.add(to_mesh_data(current_projected[i], textures[i]));
+		viewer.add(to_mesh_data(current_projected[i], textures[i]));
 	}
 
 	return application.exec();
