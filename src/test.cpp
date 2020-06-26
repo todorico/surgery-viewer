@@ -7,6 +7,7 @@
 // PROJECT
 #include "docopt/docopt.h"
 #include "mesh/conversion.hpp"
+#include "mesh/projection.hpp"
 #include "mesh/utils.hpp"
 #include "mesh/viewer.hpp"
 
@@ -101,8 +102,8 @@ int main(int argc, char const* argv[])
 		textures[i] = data.texture_path;
 	}
 
-	Surface_mesh mesh_0 = meshes[0];
-	Surface_mesh mesh_1 = meshes[1];
+	Surface_mesh M0 = meshes[0];
+	Surface_mesh M1 = meshes[1];
 
 	////////// MEHES PROCESSING
 
@@ -111,11 +112,11 @@ int main(int argc, char const* argv[])
 	mark_regions(meshes[0], meshes[1], threshold);
 	mark_regions(meshes[1], meshes[0], threshold);
 
-	Surface_mesh marked_0 = meshes[0];
-	Surface_mesh marked_1 = meshes[1];
+	Surface_mesh M0_marked = meshes[0];
+	Surface_mesh M1_marked = meshes[1];
 
-	set_mesh_color(marked_0, close_vertices(marked_0), CGAL::Color(200, 0, 200));
-	set_mesh_color(marked_1, close_vertices(marked_1), CGAL::Color(200, 0, 200));
+	set_mesh_color(M0_marked, close_vertices(M0_marked), CGAL::Color(200, 0, 200));
+	set_mesh_color(M1_marked, close_vertices(M1_marked), CGAL::Color(200, 0, 200));
 
 	///// MARKING LIMITS
 
@@ -127,8 +128,12 @@ int main(int argc, char const* argv[])
 
 	///// SEPARATE REGIONS
 
-	auto M1_division = divide(meshes[0]);
-	auto M2_division = divide(meshes[1]);
+	auto M0_division = divide(meshes[0]);
+	auto M1_division = divide(meshes[1]);
+
+	///// PROJECTION
+
+	auto projection_M0_M1 = projection(M0, M1);
 
 	////////// MESHES VISUALISATION
 
@@ -145,24 +150,19 @@ int main(int argc, char const* argv[])
 
 	viewer.show(); // Create Opengl Context
 
-	viewer.add(to_mesh_data(mesh_0, textures[0]));
-	viewer.add(to_mesh_data(mesh_1, textures[1]));
+	viewer.add(to_mesh_data(M0, textures[0]));
+	viewer.add(to_mesh_data(M1, textures[1]));
 
-	viewer.add(to_mesh_data(marked_0, textures[0]));
-	viewer.add(to_mesh_data(marked_1, textures[1]));
+	viewer.add(to_mesh_data(M0_marked, textures[0]));
+	viewer.add(to_mesh_data(M1_marked, textures[1]));
 
-	viewer.add(to_mesh_data(M1_division.first, textures[0]));
-	viewer.add(to_mesh_data(M1_division.second, textures[0]));
+	viewer.add(to_mesh_data(M0_division.first, textures[0]));
+	viewer.add(to_mesh_data(M0_division.second, textures[0]));
 
-	viewer.add(to_mesh_data(M2_division.first, textures[1]));
-	viewer.add(to_mesh_data(M2_division.second, textures[1]));
+	viewer.add(to_mesh_data(M1_division.first, textures[1]));
+	viewer.add(to_mesh_data(M1_division.second, textures[1]));
 
-	viewer.add(
-		to_mesh_data(translated(M1_division.second, Kernel::Vector_3(0, 0, -translation_intensity)),
-					 textures[0]));
-	viewer.add(
-		to_mesh_data(translated(M2_division.second, Kernel::Vector_3(0, 0, -translation_intensity)),
-					 textures[1]));
+	viewer.add(to_mesh_data(projection_M0_M1, textures[0]));
 
 	return application.exec();
 }

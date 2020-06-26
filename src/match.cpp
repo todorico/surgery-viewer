@@ -385,12 +385,14 @@ int main(int argc, char const* argv[])
 			CGAL::Polygon_mesh_processing::stitch_borders(meshes[i]);
 			// CGAL::Polygon_mesh_processing::stitch_boundary_cycles(meshes[i]);
 
-			// if(i == 0)
-			// 	set_mesh_color(meshes[i], CGAL::Color(200, 0, 0));
-			// else if(i == 1)
-			// 	set_mesh_color(meshes[i], CGAL::Color(0, 200, 0));
-			// else
-			// 	set_mesh_color(meshes[i], random_color());
+			if(i == 0)
+				set_mesh_color(meshes[i], CGAL::Color(200, 0, 0));
+			else if(i == 1)
+				set_mesh_color(meshes[i], CGAL::Color(0, 200, 0));
+			else if(i == 2)
+				set_mesh_color(meshes[i], CGAL::Color(0, 0, 200));
+			else
+				set_mesh_color(meshes[i], random_color());
 
 			textures[i] = data.texture_path;
 		}
@@ -405,6 +407,7 @@ int main(int argc, char const* argv[])
 	std::vector<Surface_mesh> next_projected(input_files.size() - 1);
 
 	Surface_mesh reconstruction = meshes[0];
+	Surface_mesh projected;
 
 	////////// MESH PROCESSING
 
@@ -433,6 +436,7 @@ int main(int argc, char const* argv[])
 
 		std::cerr << "[CURRENT_MESH] Projecting...\n";
 		current_projected[i - 1] = projection(current_mesh, next_mesh);
+		projected				 = current_projected[i - 1];
 
 		////////// NEXT MESH
 
@@ -456,20 +460,20 @@ int main(int argc, char const* argv[])
 
 		// [WARNING] attention à ne pas confondre current_marking_map et projected_marking_map
 
-		current_projected[i - 1] = fill_holes(current_projected[i - 1], next_mesh);
+		// current_projected[i - 1] = fill_holes(current_projected[i - 1], next_mesh);
 
 		// mark_delimited_regions(current_projected[i - 1], next_mesh);
 
 		////////// COLORIZE MESHES
 
-		set_mesh_color(current_projected[i - 1], close_vertices(current_projected[i - 1]),
-					   CGAL::Color(150, 0, 0));
+		// set_mesh_color(current_projected[i - 1], close_vertices(current_projected[i - 1]),
+		// 			   CGAL::Color(200, 0, 200));
 		set_mesh_color(current_projected[i - 1], limit_vertices(current_projected[i - 1]),
-					   CGAL::Color(150, 150, 0));
+					   CGAL::Color(200, 200, 0));
 		set_mesh_color(current_projected[i - 1], distant_vertices(current_projected[i - 1]),
-					   CGAL::Color(0, 150, 0));
+					   CGAL::Color(0, 200, 0));
 
-		set_mesh_color(next_mesh, close_vertices(next_mesh), CGAL::Color(200, 0, 0));
+		// set_mesh_color(next_mesh, close_vertices(next_mesh), CGAL::Color(200, 0, 200));
 		set_mesh_color(next_mesh, limit_vertices(next_mesh), CGAL::Color(200, 200, 0));
 		set_mesh_color(next_mesh, distant_vertices(next_mesh), CGAL::Color(0, 200, 0));
 
@@ -523,6 +527,7 @@ int main(int argc, char const* argv[])
 		viewer.add(to_mesh_data(current_distant[i], textures[i]));
 
 		viewer.add(to_mesh_data(current_projected[i], textures[i]));
+		viewer.add(to_mesh_data(projected, textures[i]));
 	}
 
 	return application.exec();
