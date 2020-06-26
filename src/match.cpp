@@ -185,23 +185,22 @@ SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2)
 
 template <class VertexRange>
 Surface_mesh stick_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
-							const Surface_mesh M2, const SM_kd_tree& M2_tree)
+							const Surface_mesh& M2, const SM_kd_tree& M2_tree)
 {
 	Surface_mesh result = M1;
+
 	auto M1_marking_map = get_marking_map(result);
-	// auto M2_marking_map = get_marking_map(M2);
+	auto M2_marking_map = get_marking_map(M2);
 
 	for(auto M1_v : M1_vertices)
 	{
-		// auto M1_point = M1.point(M1_v);
-
 		SM_kd_tree_search search(M2_tree, result.point(M1_v), 1, 0, true,
 								 M2_tree.traits().point_property_map());
 
 		auto [M2_v, M2_dist_squared] = *(search.begin());
 
 		result.point(M1_v)	 = M2_tree.traits().point_property_map()[M2_v];
-		M1_marking_map[M1_v] = Vertex_mark::Limit;
+		M1_marking_map[M1_v] = M2_marking_map[M2_v];
 	}
 
 	return result;
@@ -248,13 +247,57 @@ auto not_sticked_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices
 	return not_sticked_vertices(M1, M1_vertices, M2_tree);
 }
 
+template <class VertexRange>
+auto closest_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
+					  const SM_kd_tree& M2_tree)
+{
+	std::vector<Surface_mesh::Vertex_index> result;
+	result.reserve(M1_vertices.size());
+
+	for(auto M1_v : M1_vertices)
+	{
+		SM_kd_tree_search search(M2_tree, M1.point(M1_v), 1, 0, true,
+								 M2_tree.traits().point_property_map());
+
+		result.push_back(search.begin()->first);
+	}
+
+	return result;
+}
+
+template <class VertexRange1, class VertexRange2>
+auto closest_vertices(const Surface_mesh& M1, const VertexRange1& M1_vertices,
+					  const Surface_mesh& M2, const VertexRange2& M2_vertices)
+{
+	SM_kd_tree M2_tree(M2_vertices.begin(), M2_vertices.end(), SM_kd_tree_splitter(),
+					   SM_kd_tree_traits_adapter(M2.points()));
+
+	return closest_vertices(M1, M1_vertices, M2_tree);
+}
+
 Surface_mesh fill_holes(const Surface_mesh& M1, const Surface_mesh& M2)
 {
 	// point limites de M2 qui ne sont pas collé a M1
 	auto M2_not_sticked_vertices =
 		not_sticked_vertices(M2, limit_vertices(M2), M1, distant_vertices(M1));
 
-	return stick_vertices(M1, distant_vertices(M1), M2, M2_not_sticked_vertices);
+	auto M1_closest_vertices_from_M2_not_sticked =
+		closest_vertices(M2, M2_not_sticked_vertices, M1, M1.vertices());
+
+	auto result =
+		stick_vertices(M1, M1_closest_vertices_from_M2_not_sticked, M2, M2_not_sticked_vertices);
+
+	return result;
+	///
+
+	// auto M1_not_sticked_vertices =
+	// 	not_sticked_vertices(result, limit_vertices(result), M2, distant_vertices(M2));
+
+	// auto M2_closest_vertices_from_M1_not_sticked =
+	// 	closest_vertices(result, M1_not_sticked_vertices, M2, M2.vertices());
+
+	// return stick_vertices(result, M1_not_sticked_vertices, M2,
+	// 					  M2_closest_vertices_from_M1_not_sticked);
 }
 
 static const char USAGE[] =
@@ -405,9 +448,9 @@ int main(int argc, char const* argv[])
 
 		std::cerr << "[CURRENT_MESH] sticking vertices...\n";
 
-		current_projected[i - 1] =
-			stick_vertices(current_projected[i - 1], limit_vertices(current_projected[i - 1]),
-						   next_mesh, limit_vertices(next_mesh));
+		// current_projected[i - 1] =
+		// 	stick_vertices(current_projected[i - 1], current_projected[i-1].vertices(),
+		// 				   next_mesh, limit_vertices(next_mesh));
 
 		std::cerr << "[CURRENT_MESH] filling holes...\n";
 
@@ -422,13 +465,13 @@ int main(int argc, char const* argv[])
 		set_mesh_color(current_projected[i - 1], close_vertices(current_projected[i - 1]),
 					   CGAL::Color(150, 0, 0));
 		set_mesh_color(current_projected[i - 1], limit_vertices(current_projected[i - 1]),
-					   CGAL::Color(0, 150, 0));
+					   CGAL::Color(150, 150, 0));
 		set_mesh_color(current_projected[i - 1], distant_vertices(current_projected[i - 1]),
-					   CGAL::Color(0, 0, 150));
+					   CGAL::Color(0, 150, 0));
 
 		set_mesh_color(next_mesh, close_vertices(next_mesh), CGAL::Color(200, 0, 0));
-		set_mesh_color(next_mesh, limit_vertices(next_mesh), CGAL::Color(0, 200, 0));
-		set_mesh_color(next_mesh, distant_vertices(next_mesh), CGAL::Color(0, 0, 200));
+		set_mesh_color(next_mesh, limit_vertices(next_mesh), CGAL::Color(200, 200, 0));
+		set_mesh_color(next_mesh, distant_vertices(next_mesh), CGAL::Color(0, 200, 0));
 
 		////////// DIVIDE MESHES
 
