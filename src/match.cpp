@@ -179,8 +179,8 @@ SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2)
 
 SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2)
 {
-	auto M1_marking_map = mark_regions(M1, M2);
-	return mark_limits(M1, M1_marking_map);
+	mark_regions(M1, M2);
+	return mark_limits(M1);
 }
 
 template <class VertexRange>

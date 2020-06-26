@@ -17,6 +17,8 @@ void set_mesh_color(Surface_mesh& mesh, const VertexRange& vertices, const CGAL:
 
 void set_mesh_color(Surface_mesh& mesh, const CGAL::Color& color);
 
+Surface_mesh translated(const Surface_mesh& mesh, const Kernel::Vector_3& v);
+
 // FILTER
 
 template <class VertexRange>

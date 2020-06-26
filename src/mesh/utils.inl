@@ -48,6 +48,18 @@ void set_mesh_color(Surface_mesh& mesh, const CGAL::Color& color)
 	set_mesh_color(mesh, mesh.vertices(), color);
 }
 
+Surface_mesh translated(const Surface_mesh& mesh, const Kernel::Vector_3& v)
+{
+	Surface_mesh result = mesh;
+
+	for(auto& p : result.points())
+	{
+		p = (p + v);
+	}
+
+	return result;
+}
+
 template <class VertexRange>
 Surface_mesh filtered(const Surface_mesh& mesh, const VertexRange& vertices)
 {

@@ -19,7 +19,7 @@ SM_marking_map get_marking_map(const Surface_mesh& mesh);
 SM_marking_map mark_regions(Surface_mesh& M1, const SM_kd_tree& M2_tree, double threshold);
 SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, double threshold);
 
-SM_marking_map mark_limits(const Surface_mesh& M1, SM_marking_map& mark_map);
+SM_marking_map mark_limits(const Surface_mesh& mesh);
 
 SM_marking_map mark_delimited_regions(Surface_mesh& M1, const SM_kd_tree& M2_tree,
 									  double threshold);
@@ -29,13 +29,13 @@ template <class VertexRange>
 auto marked_vertices(const Surface_mesh& mesh, const VertexRange& mesh_vertices,
 					 const Vertex_mark mark);
 
-auto none_vertices(const Surface_mesh& mesh, const SM_marking_map& marking_map);
+auto none_vertices(const Surface_mesh& mesh);
 
-auto close_vertices(const Surface_mesh& mesh, const SM_marking_map& marking_map);
+auto close_vertices(const Surface_mesh& mesh);
 
-auto limit_vertices(const Surface_mesh& mesh, const SM_marking_map& marking_map);
+auto limit_vertices(const Surface_mesh& mesh);
 
-auto distant_vertices(const Surface_mesh& mesh, const SM_marking_map& marking_map);
+auto distant_vertices(const Surface_mesh& mesh);
 
 // template <class VertexRange>
 // auto marked_vertices(const VertexRange& vertices, const SM_marking_map& marking_map,

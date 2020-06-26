@@ -51,13 +51,15 @@ SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, double thr
 	return mark_regions(M1, M2_tree, threshold);
 }
 
-SM_marking_map mark_limits(const Surface_mesh& M1, SM_marking_map& marking_map)
+SM_marking_map mark_limits(const Surface_mesh& mesh)
 {
-	for(auto v : M1.vertices())
+	auto marking_map = get_marking_map(mesh);
+
+	for(auto v : mesh.vertices())
 	{
 		if(marking_map[v] == Vertex_mark::Close)
 		{
-			auto around_vertices = CGAL::vertices_around_target(M1.halfedge(v), M1);
+			auto around_vertices = CGAL::vertices_around_target(mesh.halfedge(v), mesh);
 
 			for(auto i : around_vertices)
 			{
@@ -75,14 +77,14 @@ SM_marking_map mark_limits(const Surface_mesh& M1, SM_marking_map& marking_map)
 
 SM_marking_map mark_delimited_regions(Surface_mesh& M1, const SM_kd_tree& M2_tree, double threshold)
 {
-	auto marking_map = mark_regions(M1, M2_tree, threshold);
-	return mark_limits(M1, marking_map);
+	mark_regions(M1, M2_tree, threshold);
+	return mark_limits(M1);
 }
 
 SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2, double threshold)
 {
-	auto marking_map = mark_regions(M1, M2, threshold);
-	return mark_limits(M1, marking_map);
+	mark_regions(M1, M2, threshold);
+	return mark_limits(M1);
 }
 
 template <class VertexRange>
