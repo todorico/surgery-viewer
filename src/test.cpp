@@ -18,6 +18,7 @@ static const char USAGE[] =
 
     Options:
       -c, --colorize                             Colorize geometrical objects by files.
+      -e <dist>, --epsilon <dist>				 Reduce threshold to make transition.
       -t <intensity>, --translation=<intensity>  Translation intensity.
       -h --help                                  Show this screen
       --version                                  Show version
@@ -67,6 +68,22 @@ int main(int argc, char const* argv[])
 		catch(std::invalid_argument& ia)
 		{
 			std::cerr << "[ERROR] --translation=<intensity> must be a real number\n";
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	double epsilon	 = 0;
+	auto opt_epsilon = args.at("--epsilon");
+
+	if(opt_epsilon)
+	{
+		try
+		{
+			epsilon = std::stod(opt_epsilon.asString());
+		}
+		catch(std::invalid_argument& ia)
+		{
+			std::cerr << "[ERROR] --epsilon=<dist> must be a real number\n";
 			exit(EXIT_FAILURE);
 		}
 	}

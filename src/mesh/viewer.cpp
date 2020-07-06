@@ -221,7 +221,7 @@ void MeshViewer::init()
 	glBlendFunc(GL_ONE, GL_ZERO);
 	glHint(GL_LINE_SMOOTH_HINT, GL_FASTEST);
 
-	glLineWidth(3.0);
+	glLineWidth(2.0);
 	glPointSize(10.0);
 
 	std::clog << "[STATUS] OpenGL Version  : " << glGetString(GL_VERSION) << '\n';

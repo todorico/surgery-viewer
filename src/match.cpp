@@ -135,7 +135,7 @@ SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, const SM_k
 		{
 			if(M2.is_border(f))
 			{
-				std::cerr << "[WARNING] skipping border halfedge\n";
+				// std::cerr << "[WARNING] skipping border halfedge\n";
 				continue;
 			}
 
@@ -157,7 +157,8 @@ SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2, const SM_k
 
 		if(!found_matching_triangle)
 		{
-			std::cerr << "[WARNING] could not found matching triangle for vertex " << M1_v << '\n';
+			// std::cerr << "[WARNING] could not found matching triangle for vertex " << M1_v <<
+			// '\n';
 		}
 
 		if(found_distant_triangle)
@@ -306,10 +307,12 @@ static const char USAGE[] =
     Usage: match [options] <threshold> <input-files>...
 
     Options:
-      -h --help           Show this screen
-      --neighbors=<num>   Numbers of neighbors to query during projection
-      --iterations=<num>  Numbers of iterations during projection
-      --version           Show version
+      -c, --colorize                     Colorize geometrical objects by files.
+      -e <dist>, --epsilon <dist>		 Reduce threshold to make transition.
+      --neighbors=<num>                  Numbers of neighbors to query during projection
+      --iterations=<num>                 Numbers of iterations during projection
+      -h --help                          Show this screen
+      --version                          Show version
 )";
 
 int main(int argc, char const* argv[])
@@ -334,6 +337,8 @@ int main(int argc, char const* argv[])
 	auto input_files = args.at("<input-files>").asStringList();
 
 	////// PROGRAM OPTIONS
+
+	auto opt_colorize = args.at("--colorize").asBool();
 
 	unsigned long iterations = 20;
 	auto opt_iterations		 = args.at("--iterations");
@@ -367,6 +372,22 @@ int main(int argc, char const* argv[])
 		}
 	}
 
+	double epsilon	 = 0;
+	auto opt_epsilon = args.at("--epsilon");
+
+	if(opt_epsilon)
+	{
+		try
+		{
+			epsilon = std::stod(opt_epsilon.asString());
+		}
+		catch(std::invalid_argument& ia)
+		{
+			std::cerr << "[ERROR] --epsilon=<dist> must be a real number\n";
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	////////// MESH IMPORTATION
 
 	std::vector<Surface_mesh> meshes(input_files.size());
@@ -378,36 +399,38 @@ int main(int argc, char const* argv[])
 		{
 			Mesh_data data = load_mesh_data(input_files[i]);
 
-			meshes[i] = to_surface_mesh(data);
-			// CGAL::Polygon_mesh_processing::merge_duplicated_vertices_in_boundary_cycles(meshes[i]);
+			textures[i] = data.texture_path;
+			meshes[i]	= to_surface_mesh(data);
 
 			// WARNING: force mesh to be geometricaly processable by removing duplicated halfedges
 			CGAL::Polygon_mesh_processing::stitch_borders(meshes[i]);
-			// CGAL::Polygon_mesh_processing::stitch_boundary_cycles(meshes[i]);
 
-			if(i == 0)
-				set_mesh_color(meshes[i], CGAL::Color(200, 0, 0));
-			else if(i == 1)
-				set_mesh_color(meshes[i], CGAL::Color(0, 200, 0));
-			else if(i == 2)
-				set_mesh_color(meshes[i], CGAL::Color(0, 0, 200));
-			else
-				set_mesh_color(meshes[i], random_color());
-
-			textures[i] = data.texture_path;
+			if(opt_colorize)
+			{
+				if(i == 0)
+					set_mesh_color(meshes[i], CGAL::Color(200, 0, 0));
+				else if(i == 1)
+					set_mesh_color(meshes[i], CGAL::Color(0, 200, 0));
+				else if(i == 2)
+					set_mesh_color(meshes[i], CGAL::Color(0, 0, 200));
+				else
+					set_mesh_color(meshes[i], random_color());
+			}
 		}
 	}
 
-	std::vector<Surface_mesh> current_close(input_files.size() - 1);
-	std::vector<Surface_mesh> current_distant(input_files.size() - 1);
-	std::vector<Surface_mesh> current_projected(input_files.size() - 1);
-
-	std::vector<Surface_mesh> next_close(input_files.size() - 1);
-	std::vector<Surface_mesh> next_distant(input_files.size() - 1);
-	std::vector<Surface_mesh> next_projected(input_files.size() - 1);
-
 	Surface_mesh reconstruction = meshes[0];
-	Surface_mesh projected;
+	Surface_mesh current_projected;
+
+	Surface_mesh M1_projected_close;
+	Surface_mesh M1_projected_distant;
+
+	// Surface_mesh M1_close_close;
+	// Surface_mesh M1_close_distant;
+	// Surface_mesh M1_close_distant_proj;
+
+	Surface_mesh M2_close;
+	Surface_mesh M2_distant;
 
 	////////// MESH PROCESSING
 
@@ -415,86 +438,121 @@ int main(int argc, char const* argv[])
 
 	for(size_t i = 1; i < input_files.size(); ++i)
 	{
-		Surface_mesh current_mesh = reconstruction;
-		Surface_mesh next_mesh	  = meshes[i];
+		Surface_mesh current = reconstruction;
+		Surface_mesh next	 = meshes[i];
+
+		//////////////////////////////// OLD VERSION
+
+		// mark_delimited_regions(current, next, threshold);
+		// mark_delimited_regions(next, current, threshold);
+
+		// auto current_div = divide(current);
+		// auto next_div	 = divide(next);
+
+		// mark_delimited_regions(current_div.first, next, threshold - epsilon);
+		// mark_delimited_regions(next_div.first, current, threshold - epsilon);
+
+		// auto current_first_div = divide(current_div.first);
+		// auto next_first_div	   = divide(next_div.first);
+
+		// M2_plus		   = next_div.second;
+		// M1_minus	   = current_div.first;
+		// M1_minus_minus = current_first_div.first;
+		// M1_minus_trans = current_first_div.second;
+
+		// M2_minus_trans = next_first_div.second;
+
+		// M1_minus_trans_proj = projection(M1_minus, M1_minus_trans.vertices(), M2_minus_trans,
+		// 								 M2_minus_trans.vertices());
+
+		// set_mesh_color(M1_minus_trans_proj, M1_minus_trans.vertices(), CGAL::Color(200, 200, 0));
+
+		//////////////////////////////// NEW VERSION
 
 		////////// CURRENT MESH
 
-		// std::cerr << "[CURRENT_MESH] total vertices: " << current_mesh.number_of_vertices() <<
+		// std::cerr << "[CURRENT] total vertices: " << current.number_of_vertices() <<
 		// '\n';
 
-		// std::cerr << "[CURRENT_MESH] Marking...\n";
-		// auto current_marking_map = mark_delimited_regions(current_mesh, next_mesh, threshold);
+		// std::cerr << "[CURRENT] Marking...\n";
+		// auto current_marking_map = mark_delimited_regions(current, next, threshold);
 
-		// std::cerr << "[CURRENT_MESH] Dividing...\n";
-		// auto current_division = divide(current_mesh, current_marking_map);
+		// std::cerr << "[CURRENT] Dividing...\n";
+		// auto current_division = divide(current, current_marking_map);
 
 		// current_close[i - 1]   = current_division.first;
 		// current_distant[i - 1] = current_division.second;
 
 		////////// PROJECTION
 
-		std::cerr << "[CURRENT_MESH] Projecting...\n";
-		current_projected[i - 1] = projection(current_mesh, next_mesh);
-		projected				 = current_projected[i - 1];
+		std::cerr << "[CURRENT] total vertices: " << current.number_of_vertices() << '\n';
+
+		std::cerr << "[CURRENT] Projecting...\n";
+		current_projected = projection(current, next);
+		// projected				 = current_projected[i - 1];
 
 		////////// NEXT MESH
 
-		std::cerr << "[NEXT_MESH] total vertices: " << next_mesh.number_of_vertices() << '\n';
+		std::cerr << "[NEXT] total vertices: " << next.number_of_vertices() << '\n';
 
-		std::cerr << "[NEXT_MESH] Marking...\n";
-		mark_delimited_regions(next_mesh, current_mesh, threshold);
+		std::cerr << "[NEXT] Marking...\n";
+		mark_delimited_regions(next, current, threshold);
 
-		std::cerr << "[CURRENT_MESH] Marking...\n";
-		mark_delimited_regions(current_projected[i - 1], next_mesh);
+		std::cerr << "[CURRENT] Marking...\n";
+		mark_delimited_regions(current_projected, next);
+
+		if(opt_colorize)
+		{
+			set_mesh_color(next, limit_vertices(next), CGAL::Color(200, 200, 0));
+			set_mesh_color(current_projected, limit_vertices(current_projected),
+						   CGAL::Color(200, 200, 0));
+		}
 
 		////////// STICK CURRENT MESH
 
-		std::cerr << "[CURRENT_MESH] sticking vertices...\n";
-
-		// current_projected[i - 1] =
-		// 	stick_vertices(current_projected[i - 1], current_projected[i-1].vertices(),
-		// 				   next_mesh, limit_vertices(next_mesh));
-
-		std::cerr << "[CURRENT_MESH] filling holes...\n";
+		std::cerr << "[CURRENT] filling holes...\n";
 
 		// [WARNING] attention à ne pas confondre current_marking_map et projected_marking_map
 
-		// current_projected[i - 1] = fill_holes(current_projected[i - 1], next_mesh);
+		// current_projected[i - 1] = fill_holes(current_projected[i - 1], next);
 
-		// mark_delimited_regions(current_projected[i - 1], next_mesh);
+		// mark_delimited_regions(current_projected[i - 1], next);
 
 		////////// COLORIZE MESHES
 
 		// set_mesh_color(current_projected[i - 1], close_vertices(current_projected[i - 1]),
 		// 			   CGAL::Color(200, 0, 200));
-		set_mesh_color(current_projected[i - 1], limit_vertices(current_projected[i - 1]),
-					   CGAL::Color(200, 200, 0));
-		set_mesh_color(current_projected[i - 1], distant_vertices(current_projected[i - 1]),
-					   CGAL::Color(0, 200, 0));
+		// set_mesh_color(current_projected[i - 1], limit_vertices(current_projected[i - 1]),
+		//		   CGAL::Color(200, 200, 0));
+		// set_mesh_color(current_projected[i - 1], distant_vertices(current_projected[i - 1]),
+		//		   CGAL::Color(0, 200, 0));
 
-		// set_mesh_color(next_mesh, close_vertices(next_mesh), CGAL::Color(200, 0, 200));
-		set_mesh_color(next_mesh, limit_vertices(next_mesh), CGAL::Color(200, 200, 0));
-		set_mesh_color(next_mesh, distant_vertices(next_mesh), CGAL::Color(0, 200, 0));
+		// set_mesh_color(next, close_vertices(next), CGAL::Color(200, 0, 200));
+		// set_mesh_color(next, limit_vertices(next), CGAL::Color(200, 200, 0));
+		// set_mesh_color(next, distant_vertices(next), CGAL::Color(0, 200, 0));
 
 		////////// DIVIDE MESHES
 
-		std::cerr << "[NEXT_MESH] Dividing...\n";
-		auto next_division = divide(next_mesh);
+		std::cerr << "[NEXT] Dividing...\n";
+		std::tie(M2_close, M2_distant)					   = divide(next);
+		std::tie(M1_projected_close, M1_projected_distant) = divide(current_projected);
 
-		next_close[i - 1]	= next_division.first;
-		next_distant[i - 1] = next_division.second;
+		std::cerr << "[NEXT_DISTANT] total vertices: " << M2_distant.number_of_vertices() << '\n';
+		std::cerr << "[NEXT_CLOSE] total vertices: " << M2_close.number_of_vertices() << '\n';
 
-		std::cerr << "[CURRENT_MESH] Dividing...\n";
-		auto current_division = divide(current_projected[i - 1]);
+		// next_close[i - 1]	= next_division.first;
+		// next_distant[i - 1] = next_division.second;
 
-		current_close[i - 1]   = current_division.first;
-		current_distant[i - 1] = current_division.second;
+		// std::cerr << "[CURRENT] Dividing...\n";
+		// auto current_division = divide(current_projected[i - 1]);
 
-		//////////// RENCONSTRUCTED MESH
+		// current_close[i - 1]   = current_division.first;
+		// current_distant[i - 1] = current_division.second;
 
-		reconstruction = current_close[i - 1];
-		reconstruction += next_distant[i - 1];
+		// //////////// RENCONSTRUCTED MESH
+
+		// reconstruction = current_close[i - 1];
+		// reconstruction += next_distant[i - 1];
 	}
 
 	////////// MESH VISUALISATION
@@ -516,19 +574,29 @@ int main(int argc, char const* argv[])
 
 	// TODO: enlever triangle qui se superpose en parcourant les limites
 
-	for(size_t i = 0; i < meshes.size() - 1; ++i)
-	{
-		// viewer.add(to_mesh_data(meshes[i], textures[i]));
-		// viewer.add(to_mesh_data(meshes[i + 1], textures[i]));
-		viewer.add(to_mesh_data(next_close[i], textures[i]));
-		viewer.add(to_mesh_data(next_distant[i], textures[i]));
+	// for(size_t i = 0; i < meshes.size() - 1; ++i)
+	// {
+	// 	viewer.add(to_mesh_data(meshes[i], textures[i]));
+	// 	viewer.add(to_mesh_data(meshes[i + 1], textures[i]));
 
-		viewer.add(to_mesh_data(current_close[i], textures[i]));
-		viewer.add(to_mesh_data(current_distant[i], textures[i]));
+	// 	viewer.add(to_mesh_data(next_close[i], textures[i]));
+	// 	viewer.add(to_mesh_data(next_distant[i], textures[i]));
 
-		viewer.add(to_mesh_data(current_projected[i], textures[i]));
-		viewer.add(to_mesh_data(projected, textures[i]));
-	}
+	// 	viewer.add(to_mesh_data(current_close[i], textures[i]));
+	// 	viewer.add(to_mesh_data(current_distant[i], textures[i]));
+
+	// 	viewer.add(to_mesh_data(current_projected[i], textures[i]));
+	// 	viewer.add(to_mesh_data(projected, textures[i]));
+	// }
+
+	viewer.add(to_mesh_data(meshes[0], textures[0]));
+	viewer.add(to_mesh_data(meshes[1], textures[1]));
+
+	viewer.add(to_mesh_data(M1_projected_close, textures[0]));
+	viewer.add(to_mesh_data(M1_projected_distant, textures[0]));
+
+	viewer.add(to_mesh_data(M2_close, textures[1]));
+	viewer.add(to_mesh_data(M2_distant, textures[1]));
 
 	return application.exec();
 	// return EXIT_SUCCESS;

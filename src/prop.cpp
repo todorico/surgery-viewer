@@ -1,6 +1,9 @@
 // STD
 #include <iostream>
 
+// CGAL
+#include <CGAL/Polygon_mesh_processing/merge_border_vertices.h>
+
 // PROJECT
 #include "docopt/docopt.h"
 #include "mesh/conversion.hpp"
@@ -23,10 +26,9 @@ int main(int argc, char const* argv[])
 	std::string filename = args.at("<input-file>").asString();
 
 	std::clog << "[STATUS] reading data from " << filename << "...\n";
-	Mesh_data data = load_mesh_data(filename);
 
-	std::clog << "[STATUS] converting data to surface mesh...\n";
-	Surface_mesh mesh = to_surface_mesh(data);
+	Surface_mesh mesh = to_surface_mesh(load_mesh_data(filename));
+	CGAL::Polygon_mesh_processing::stitch_borders(mesh);
 
 	if(mesh.is_empty())
 	{
@@ -35,6 +37,10 @@ int main(int argc, char const* argv[])
 	}
 
 	std::clog << "[STATUS] printin surface mesh properties...\n";
+	std::clog << "number_of_edges:     " << mesh.number_of_edges() << '\n';
+	std::clog << "number_of_faces:     " << mesh.number_of_faces() << '\n';
+	std::clog << "number_of_halfedges: " << mesh.number_of_halfedges() << '\n';
+	std::clog << "number_of_vertices:  " << mesh.number_of_vertices() << '\n';
 
 	for(auto p : mesh.properties<Surface_mesh::Vertex_index>())
 		std::cout << p << '\n';
