@@ -10,8 +10,9 @@ Pour accélérer la durée de compilation et donc le développement ce projet ap
 
 - CMake 3.16+
 
-La compilation de la version de CGAL5 incluse dans ce projet nécessite les bibliothèques suivantes 
+Les traitements géométriques necessites les bibliothèques suivantes
 
+- CGAL
 - Boost
 - GMP
 - MPFR
@@ -25,7 +26,7 @@ Le viewer utilise quant à lui Qt5 pour l'affichage fênétré et Assimp pour l'
 Sur les systèmes du type Debian / Ubuntu les dépendances peuvent être installer avec la commande ci-dessous.
 
 ```sh
-sudo apt-get install libboost-dev libgmp-dev libmpfr-dev libeigen3-dev 'libqt5*-dev' libassimp-dev
+sudo apt-get install libcgal-qt5-dev 'libqt5*-dev' libboost-dev libgmp-dev libmpfr-dev libeigen3-dev libassimp-dev
 ```
 
 ## Compilation

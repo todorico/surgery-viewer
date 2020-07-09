@@ -87,18 +87,18 @@ enable_doxygen(OFF)
 
 # sudo apt-get install libboost-dev 'libqt5*-dev' libgmp-dev libmpfr-dev libeigen3-dev # for solver (and libceres-dev for smoother)
 
-if(NOT DEFINED CGAL_DIR)
+# if(NOT DEFINED CGAL_DIR)
+# 
+# 	if(EXISTS ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/build)
+#     	set(CGAL_DIR ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/build) # CGAL shared
+# 	else()
+#     	set(CGAL_DIR ${CMAKE_SOURCE_DIR}/CGAL-5.0.1) # CGAL header-only
+#     	message(WARNING "Cannot found build folder in CGAL using compilation in header-only mode")
+# 	endif()
+# 
+# endif()
 
-	if(EXISTS ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/build)
-    	set(CGAL_DIR ${CMAKE_SOURCE_DIR}/CGAL-5.0.1/build) # CGAL shared
-	else()
-    	set(CGAL_DIR ${CMAKE_SOURCE_DIR}/CGAL-5.0.1) # CGAL header-only
-    	message(WARNING "Cannot found build folder in CGAL using compilation in header-only mode")
-	endif()
-
-endif()
-
-message(STATUS "Using CGAL_DIR at ${CGAL_DIR}")
+# message(STATUS "Using CGAL_DIR at ${CGAL_DIR}")
 
 # Required to use CGAL::Basic_qt_viewer
 add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
@@ -111,29 +111,21 @@ add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
 find_package(CGAL REQUIRED COMPONENTS Qt5)
 
 if(NOT CGAL_FOUND OR NOT CGAL_Qt5_FOUND)
-    message(STATUS "This project requires the CGAL library With Qt5 extention, and will not be compiled.")
-    return()
+    message(FATAL_ERROR "libcgal-qt5 is required to build this project !")
 endif()
 
 find_package(Boost REQUIRED)
 
 if(NOT Boost_FOUND)
-    message(STATUS "This project requires the Boost library, and will not be compiled.")
-    return()
+    message(FATAL_ERROR "libboost is required to build this project !")
 endif()
 
 find_package(Eigen3 REQUIRED NO_MODULE)
 
 if (NOT TARGET Eigen3::Eigen)
-    message(STATUS "This project requires the Eigen3 library, and will not be compiled.")
-    return()
-else()
-	message(STATUS "Found Eigen3:")
-endif ()
+    message(FATAL_ERROR "libeigen3 is required to build this project !")
+endif()
 
-# find_package(Ceres REQUIRED NO_MODULE)
-# include_directories(${CERES_INCLUDE_DIRS})
-# ${CERES_LIBRARIES}
 include(cmake/ConfigureOpenGL.cmake)
 include(cmake/ConfigureAssimp.cmake)
 
