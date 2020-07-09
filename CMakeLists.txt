@@ -24,7 +24,7 @@ add_library(project_build_options INTERFACE)
 add_library(project_precompilation_options INTERFACE)
 target_compile_features(project_build_options INTERFACE cxx_std_17) # force use of c++14
 
-add_definitions("-fdiagnostics-color") # Enable compiler color output
+# add_definitions("-fdiagnostics-color") # Enable compiler color output
 
 #
 # Compiler Warnings
@@ -108,27 +108,60 @@ add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
 # Add uftrace symbol for debugging
 # add_definitions(-pg)
 
+# Download automatically, you can also just copy the conan.cmake file
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
+   message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
+   file(DOWNLOAD "https://github.com/conan-io/cmake-conan/raw/v0.15/conan.cmake"
+                 "${CMAKE_BINARY_DIR}/conan.cmake")
+endif()
+
+include(${CMAKE_BINARY_DIR}/conan.cmake)
+
+conan_cmake_run(REQUIRES assimp/5.0.1
+						 boost/1.72.0 
+						 docopt.cpp/0.6.2
+                OPTIONS boost:header_only=True
+                BASIC_SETUP
+                BUILD missing)
+
+# assimp:with_*=False
+# assimp:with_obj=True
+# assimp:with_obj_exporter=True
+# assimp:with_stl=True
+# assimp:with_stl_exporter=True
+# assimp:with_ply=True
+# assimp:with_ply_exporter=True
+
+# find_package(Qt5 COMPONENTS Core Widgets OpenGL Svg REQUIRED)
+# find_package(Qt5 REQUIRED COMPONENTS OpenGL)
+
+# qtbase5-dev
+# Dépend: libqt5opengl5-dev
+# Dépend: libqt5svg5-dev
+
 find_package(CGAL REQUIRED COMPONENTS Qt5)
 
-if(NOT CGAL_FOUND OR NOT CGAL_Qt5_FOUND)
+if(NOT CGAL_Qt5_FOUND)
     message(FATAL_ERROR "libcgal-qt5 is required to build this project !")
 endif()
 
-find_package(Boost REQUIRED)
+# find_package(Boost REQUIRED)
 
-if(NOT Boost_FOUND)
-    message(FATAL_ERROR "libboost is required to build this project !")
-endif()
+# if(NOT Boost_FOUND)
+#     message(FATAL_ERROR "libboost is required to build this project !")
+# endif()
 
-find_package(Eigen3 REQUIRED NO_MODULE)
+# find_package(Eigen3 REQUIRED NO_MODULE)
 
-if (NOT TARGET Eigen3::Eigen)
-    message(FATAL_ERROR "libeigen3 is required to build this project !")
-endif()
+# if (NOT TARGET Eigen3::Eigen)
+#     message(FATAL_ERROR "libeigen3 is required to build this project !")
+# endif()
 
 include(cmake/ConfigureOpenGL.cmake)
-include(cmake/ConfigureAssimp.cmake)
+# include(cmake/ConfigureAssimp.cmake)
 
-target_link_libraries(project_build_options INTERFACE CGAL::CGAL CGAL::CGAL_Qt5 Eigen3::Eigen ${OPENGL_LIBRARIES} ${assimp_LIBRARIES})
+# target_link_libraries(project_build_options INTERFACE CGAL::CGAL CGAL::CGAL_Qt5 Eigen3::Eigen ${OPENGL_LIBRARIES} ${assimp_LIBRARIES})
+# target_link_libraries(project_build_options INTERFACE ${CONAN_LIBS} CGAL::CGAL_Qt5 Qt5::Core Qt5::Widgets Qt5::OpenGL Qt5::Svg ${OPENGL_LIBRARIES})
+target_link_libraries(project_build_options INTERFACE ${CONAN_LIBS} CGAL::CGAL_Qt5 ${OPENGL_LIBRARIES})
 
 add_subdirectory(src)

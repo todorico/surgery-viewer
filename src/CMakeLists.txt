@@ -9,12 +9,12 @@
 # target_precompile_headers(pch INTERFACE "$<$<COMPILE_LANGUAGE:CXX>:cgal_pch.hpp>")
 
 add_library(shared_headers_lib INTERFACE)
-target_precompile_headers(shared_headers_lib INTERFACE pch/STD.h pch/CGAL.h docopt/docopt.h)
+target_precompile_headers(shared_headers_lib INTERFACE pch/STD.h pch/CGAL.h)
 
 file(GLOB MESH_SOURCES ${CMAKE_CURRENT_LIST_DIR}/mesh/*.cpp)
 
 # Cette library permet precompiler des headers reutilisables pour d'autres cibles
-add_library(shared_dependencies_lib OBJECT docopt/docopt.cpp ${MESH_SOURCES}) # create pch lib
+add_library(shared_dependencies_lib OBJECT ${MESH_SOURCES}) # create pch lib
 target_link_libraries(shared_dependencies_lib PRIVATE project_build_options shared_headers_lib) # Add build options to pchlib
 
 ### match

@@ -26,6 +26,12 @@ Le viewer utilise quant à lui Qt5 pour l'affichage fênétré et Assimp pour l'
 Sur les systèmes du type Debian / Ubuntu les dépendances peuvent être installer avec la commande ci-dessous.
 
 ```sh
+# Si tout vas bien
+sudo apt-get install libcgal-qt5-dev libassimp-dev
+```
+
+```sh
+# Si tout vas mal
 sudo apt-get install libcgal-qt5-dev 'libqt5*-dev' libboost-dev libgmp-dev libmpfr-dev libeigen3-dev libassimp-dev
 ```
 
@@ -36,18 +42,14 @@ sudo apt-get install libcgal-qt5-dev 'libqt5*-dev' libboost-dev libgmp-dev libmp
 
 git clone https://github.com/todorico/surgery-viewer.git
 
-# 2. build included CGAL library
+# 2. create and move to build directory
 
-cd surgery-viewer/CGAL-5.0.1
-mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCGAL_HEADER_ONLY=OFF -DWITH_Eigen3=ON ..
-make
+mkdir surgery-viewer/build 
+cd surgery-viewer/build
 
-# 3. build surgery-viewer programs
+# 3. build project
 
-cd ../../ # root of surgery-viewer
-mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=DebugFast ..
+cmake ..
 make
 ```
 
