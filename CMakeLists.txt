@@ -108,7 +108,7 @@ enable_doxygen(OFF)
 # add_definitions(-pg)
 add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
 # add_definitions(--threads=posix)
- set (CMAKE_PREFIX_PATH /usr/x86_64-w64-mingw32)
+ # set (CMAKE_PREFIX_PATH /usr/x86_64-w64-mingw32)
 
 # Download automatically, you can also just copy the conan.cmake file
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
@@ -127,11 +127,7 @@ conan_add_remote(NAME
 					# qt/5.15.0@bincrafters/stable 
 					# opengl/system 
 
-conan_cmake_run(PROFILE
-					linux_to_win64
-				PROFILE_AUTO
-					ALL
-				REQUIRES
+conan_cmake_run(REQUIRES
 					assimp/5.0.1
 					boost/1.72.0
 					docopt.cpp/0.6.2
