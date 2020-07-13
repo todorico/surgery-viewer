@@ -106,6 +106,9 @@ enable_doxygen(OFF)
 # add_definitions(-frounding-math)
 # Add uftrace symbol for debugging
 # add_definitions(-pg)
+add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
+# add_definitions(--threads=posix)
+ set (CMAKE_PREFIX_PATH /usr/x86_64-w64-mingw32)
 
 # Download automatically, you can also just copy the conan.cmake file
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
@@ -116,12 +119,25 @@ endif()
 
 include(${CMAKE_BINARY_DIR}/conan.cmake)
 
-conan_cmake_run(REQUIRES
+conan_add_remote(NAME
+					bincrafters
+				 URL
+					https://api.bintray.com/conan/bincrafters/public-conan)
+
+					# qt/5.15.0@bincrafters/stable 
+					# opengl/system 
+
+conan_cmake_run(PROFILE
+					linux_to_win64
+				PROFILE_AUTO
+					ALL
+				REQUIRES
 					assimp/5.0.1
 					boost/1.72.0
 					docopt.cpp/0.6.2
 					eigen/3.3.7
 					gmp/6.2.0
+					glm/0.9.9.8
 					mpfr/4.0.2
                 OPTIONS 
                 	boost:header_only=True
@@ -139,7 +155,6 @@ conan_cmake_run(REQUIRES
 #     message(FATAL_ERROR "libcgal with qt5 is required to build this project !")
 # endif()
 
-# add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
 
 # find_package(Qt5 COMPONENTS REQUIRED Core Gui OpenGL Svg Widgets Xml)
 
@@ -158,8 +173,9 @@ include(cmake/ConfigureOpenGL.cmake)
 
 # target_link_libraries(project_build_options INTERFACE CGAL::CGAL CGAL::CGAL_Qt5 Eigen3::Eigen ${OPENGL_LIBRARIES} ${assimp_LIBRARIES})
 # target_link_libraries(project_build_options INTERFACE ${CONAN_LIBS} CGAL::CGAL_Qt5 Qt5::Core Qt5::Widgets Qt5::OpenGL Qt5::Svg ${OPENGL_LIBRARIES})
-target_link_libraries(project_build_options INTERFACE ${CONAN_LIBS} CGAL::CGAL_Qt5 OpenGL::GL)
-
+# target_link_libraries(project_build_options INTERFACE ${CONAN_LIBS} CGAL::CGAL_Qt5 OpenGL::GL)
+# target_link_libraries(project_build_options INTERFACE ${CONAN_LIBS} CGAL::CGAL_Qt5)
+target_link_libraries(project_build_options INTERFACE ${CONAN_LIBS} CGAL::CGAL_Qt5 ${OPENGL_LIBRARIES})
 # OpenGL::OpenGL
 
 add_subdirectory(src)
