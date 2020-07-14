@@ -1,8 +1,8 @@
-#version 130
+#version 100
 
-#define highp
-#define mediump
-#define lowp
+//#define highp
+//#define mediump
+//#define lowp
 
 // out vec4 FragColor;
 
@@ -17,6 +17,7 @@ uniform highp sampler2D f_texture;
 
 void main()
 {    
-     gl_FragColor = mix(texture(f_texture, f_texcoord), f_color, vec4(0.5, 0.5, 0.5, 0.5));
-     // gl_FragColor = f_color;
+    // gl_FragColor = mix(texture2D(f_texture, f_texcoord), f_color, vec4(0.5, 0.5, 0.5, 0.5));
+    // gl_FragColor = f_color;
+    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

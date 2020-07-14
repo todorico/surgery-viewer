@@ -1,8 +1,8 @@
-#version 130
+//#version 3.0
 
-#define highp
-#define mediump
-#define lowp
+//#define highp
+//#define mediump
+//#define lowp
 
 // vertex attributes
 

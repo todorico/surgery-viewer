@@ -105,7 +105,12 @@ void QGLMesh::allocate(const Mesh_data& data)
 		{
 			std::cerr << "[DEBUG] Loading texture from " << data.texture_path.value() << "...\n";
 
-			texture.reset(new QOpenGLTexture(QImage(data.texture_path->c_str()).mirrored()));
+			// QImage image_data = QImage(data.texture_path->c_str());
+
+			// std::cerr << "[DEBUG] format wxh : " << image_data.width() << "x" << image_data.height() << '\n';
+
+            // texture.reset(new QOpenGLTexture(image_data.mirrored()));
+            texture.reset(new QOpenGLTexture(QImage(data.texture_path->c_str()).mirrored()));
 
 			texture->generateMipMaps();
 			texture->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);

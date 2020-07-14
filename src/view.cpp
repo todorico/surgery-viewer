@@ -31,8 +31,14 @@ int main(int argc, char** argv)
 	// VISUALISATION
 
 	QApplication application(argc, argv);
-
+	
+	//QSurfaceFormat glFormat;
+ 	//glFormat.setVersion(3, 0);
+ 	//glFormat.setProfile(QSurfaceFormat::CompatibilityProfile); // Requires >=Qt-4.8.0
+	
 	MeshViewer viewer;
+
+	//viewer.setFormat(glFormat);
 
 	viewer.setWindowTitle("surgery-viewer");
 

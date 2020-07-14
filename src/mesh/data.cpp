@@ -60,7 +60,7 @@ Mesh_data load_mesh_data(const std::string& filename)
 	if(data->texture_path.has_value())
 	{
 		std::string texture_name	  = data->texture_path.value();
-		std::string texture_directory = filename.substr(0, filename.find_last_of('/'));
+		std::string texture_directory = filename.substr(0, filename.find_last_of("/\\"));
 
 		// Add full path to texture name
 
