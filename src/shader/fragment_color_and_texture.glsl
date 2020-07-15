@@ -1,23 +1,43 @@
-#version 100
+// [COMPATIBILITY CODE]
 
-//#define highp
-//#define mediump
-//#define lowp
+#if __VERSION__ >= 130 // Version compatibility
+    #define varying in
+    out vec4 mgl_FragColor;
+    #define texture2D texture
+#else
+    #define mgl_FragColor gl_FragColor  
+#endif
 
-// out vec4 FragColor;
+// #ifdef GL_ES // Per variable precision GLES compatibility
+//     #define MEDIUMP mediump
+//     #define HIGHP highp
+//     #define LOWP  lowp
+// #else
+//     #define MEDIUMP
+//     #define HIGHP
+//     #define LOWP
+// #endif
+
+#ifdef GL_ES // Global precision GLES compatibility
+    precision mediump float;
+    precision mediump sampler2D;
+    precision mediump int;
+#endif
+
+// [SHADER CODE]
 
 // fragment variables
 
-varying highp vec4 f_color;
-varying highp vec2 f_texcoord;
+varying vec4 f_color;
+varying vec2 f_texcoord;
 
 // global variables
 
-uniform highp sampler2D f_texture;
+uniform sampler2D f_texture;
 
 void main()
 {    
-    // gl_FragColor = mix(texture2D(f_texture, f_texcoord), f_color, vec4(0.5, 0.5, 0.5, 0.5));
-    // gl_FragColor = f_color;
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    mgl_FragColor = mix(texture2D(f_texture, f_texcoord), f_color, vec4(0.5, 0.5, 0.5, 0.5));
+    // mgl_FragColor = f_color;
+    // mgl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
