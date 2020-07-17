@@ -52,7 +52,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release && make
 Installez les version 64bit des bibliothèques et pour Qt installer la version compatible avec votre compilateur (MinGW ici)
 
 - Installeur CGAL-5.0.2 sur Github : [https://github.com/CGAL/cgal/releases/download/releases%2FCGAL-5.0.2/CGAL-5.0.2-Setup.exe](https://github.com/CGAL/cgal/releases/download/releases%2FCGAL-5.0.2/CGAL-5.0.2-Setup.exe)
-- Installeur Qt5 open source offline : [download.qt.io/official_releases/qt/5.12/5.12.9/qt-opensource-windows-x86-5.12.9.exe](download.qt.io/official_releases/qt/5.12/5.12.9/qt-opensource-windows-x86-5.12.9.exe)
+- Installeur Qt5 open source offline : [http://download.qt.io/official_releases/qt/5.12/5.12.9/qt-opensource-windows-x86-5.12.9.exe](http://download.qt.io/official_releases/qt/5.12/5.12.9/qt-opensource-windows-x86-5.12.9.exe)
 
 Pour eviter d'installer les programmes suivants sur windows je recommande l'utilisation d'un gestionnaire de package (chocolatey). Autrement les programmes devronts être installés manuellement.
 
