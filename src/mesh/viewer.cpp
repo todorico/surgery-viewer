@@ -25,6 +25,19 @@ glm::vec3 bb_min(std::numeric_limits<float>::max(), std::numeric_limits<float>::
 glm::vec3 bb_max(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(),
 				 std::numeric_limits<float>::min());
 
+/*MeshViewer::MeshViewer()
+{
+
+
+	defaultConstructor();
+
+		QSurfaceFormat format;
+ 	format.setVersion(3, 0);
+ 	format.setProfile(QSurfaceFormat::CoreProfile); // Requires >=Qt-4.8.0
+	setFormat(format);
+}*/
+
+
 bool MeshViewer::GLLogErrors()
 {
 	GLenum error = GL_NO_ERROR;
@@ -207,7 +220,11 @@ void MeshViewer::initShaders()
 
 void MeshViewer::init()
 {
+	// setSurfaceType(QWindow::OpenGLSurface);
 	restoreStateFromFile();
+	// std::cerr << "viewer context valid? : \n" << this->context()->isValid() << '\n'; 
+	std::cerr << "viewer context adress : " << this->context() << '\n'; 
+
 	// initializeOpenGLFunctions();
 
 	m_draw_mesh.fill(true);
@@ -234,6 +251,9 @@ void MeshViewer::init()
 	this->initShaders();
 
 	this->showEntireScene();
+
+	// std::cerr << "viewer context valid? : " << this->context().isValid() << '\n'; 
+	std::cerr << "viewer context adress : " << this->context() << '\n'; 
 }
 
 void MeshViewer::add(const Mesh_data& md)
@@ -315,7 +335,7 @@ void MeshViewer::draw()
 			{
 				if(m_draw_mesh[i])
 				{
-					meshes[i].draw(*used_shader_program, GL_TRIANGLES);
+					meshes[i].draw(*this, *used_shader_program, GL_TRIANGLES);
 				}
 			}
 
@@ -329,7 +349,7 @@ void MeshViewer::draw()
 			{
 				if(m_draw_mesh[i])
 				{
-					meshes[i].draw(*used_shader_program, GL_POINTS);
+					meshes[i].draw(*this, *used_shader_program, GL_POINTS);
 				}
 			}
 		}

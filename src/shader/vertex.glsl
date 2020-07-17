@@ -1,11 +1,6 @@
 // [COMPATIBILITY CODE]
 
-#if __VERSION__ >= 130 // Version compatibility
-    #define attribute in
-    #define varying out
-#endif
-
-// #ifdef GL_ES // Per variable precision GLES compatibility
+// #ifdef GL_ES // Per variable precision GL(ES) compatibility
 //     #define MEDIUMP mediump
 //     #define HIGHP highp
 //     #define LOWP  lowp
@@ -15,9 +10,14 @@
 //     #define LOWP
 // #endif
 
-#ifdef GL_ES // Global precision GLES compatibility
+#ifdef GL_ES // Global precision GL(ES) compatibility
     precision mediump float;
     precision mediump int;
+#endif
+
+#if __VERSION__ >= 130 // Version compatibility
+    #define attribute in
+    #define varying out
 #endif
 
 // [SHADER CODE]

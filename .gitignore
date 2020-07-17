@@ -1,8 +1,9 @@
 # Build directories
-[Bb]in
+[Bb]in/
+[Bb]uild*/
 [Dd]ebug*/
 [Oo]bj/
-[Bb]uild*/
+[Oo]ut/
 [Rr]elease*/
 
 # Compiled Object files
@@ -33,6 +34,8 @@ CTestTestfile.cmake
 _deps
 
 # IDE project files
+CMakeSettings.json
 *.sublime-project
 *.sublime-workspace
 *.vscode
+*.vs

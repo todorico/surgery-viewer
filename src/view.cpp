@@ -30,18 +30,19 @@ int main(int argc, char** argv)
 
 	// VISUALISATION
 
+	// QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
+
+/*	QSurfaceFormat format;
+	format.setRenderableType(QSurfaceFormat::OpenGL);
+	format.setProfile(QSurfaceFormat::CompatibilityProfile);
+	format.setVersion(3,0);
+
+	QSurfaceFormat::setDefaultFormat(format);
+	*/
 	QApplication application(argc, argv);
-	
-	//QSurfaceFormat glFormat;
- 	//glFormat.setVersion(3, 0);
- 	//glFormat.setProfile(QSurfaceFormat::CompatibilityProfile); // Requires >=Qt-4.8.0
-	
+
 	MeshViewer viewer;
-
-	//viewer.setFormat(glFormat);
-
 	viewer.setWindowTitle("surgery-viewer");
-
 	viewer.show(); // Create Opengl context
 
 	std::cerr << "[DEBUG] Loading meshes...\n";

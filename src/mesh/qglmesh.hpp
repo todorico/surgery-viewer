@@ -41,7 +41,8 @@ class QGLMesh
 	bool use(QOpenGLShaderProgram& shader_program);
 
 	// program must be bound before draw
-	void draw(QOpenGLShaderProgram& shader_program, GLenum mode = GL_TRIANGLES);
+    void draw(QOpenGLFunctions& gl, QOpenGLShaderProgram& shader_program, GLenum mode = GL_TRIANGLES);
+
 
   protected:
 	size_t m_number_of_vertices;

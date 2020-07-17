@@ -111,18 +111,18 @@ enable_doxygen(OFF)
 # Add uftrace symbol for debugging
 # add_definitions(-pg)
 
-set(Qt5_DIR     "C:/Qt/5.15.0/mingw81_64/lib/cmake/Qt5")
+#set(Qt5_DIR     "C:/Qt/5.15.0/mingw81_64/lib/cmake/Qt5")
 #set(Qt5Core_DIR "C:/Qt/5.15.0/mingw81_64/lib/cmake/Qt5Core")
 #set(QT_QMAKE_EXECUTABLE "C:/Qt/5.15.0/mingw81_64/bin/qmake.exe")
 
 
-#set(Qt5Core_DIR "C:/Qt/5.15.0/msvc2019_64/lib/cmake/Qt5Core")
 #set(Qt5_DIR     "C:/Qt/5.15.0/msvc2019_64/lib/cmake/Qt5")
+#set(Qt5Core_DIR "C:/Qt/5.15.0/msvc2019_64/lib/cmake/Qt5Core")
 #set(QT_QMAKE_EXECUTABLE "C:/Qt/5.15.0/msvc2019_64/bin/qmake.exe")
 
-set(GMP_INCLUDE_DIR "C:/Dev/CGAL-5.0.2/auxiliary/gmp/include")
+#set(GMP_INCLUDE_DIR "C:/Dev/CGAL-5.0.2/auxiliary/gmp/include")
 
-set(MPFR_INCLUDE_DIR "C:/Dev/CGAL-5.0.2/auxiliary/gmp/include")
+#set(MPFR_INCLUDE_DIR "C:/Dev/CGAL-5.0.2/auxiliary/gmp/include")
 
 #set(WITH_CGAL_Qt5 ON)
 # set(CMAKE_PREFIX_PATH "C:/Qt/5.15.0/mingw81_64")

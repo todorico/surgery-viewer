@@ -192,26 +192,27 @@ bool QGLMesh::use(QOpenGLShaderProgram& shader_program)
 	}
 }
 
-void QGLMesh::draw(QOpenGLShaderProgram& shader_program, GLenum mode)
+void QGLMesh::draw(QOpenGLFunctions& gl, QOpenGLShaderProgram& shader_program, GLenum mode)
 {
-	if(texture)
-	{
-		shader_program.setUniformValue("f_texture", texture->textureId());
-		texture->bind(texture->textureId());
-	}
+    if(texture)
+    {
+        shader_program.setUniformValue("f_texture", texture->textureId());
+        texture->bind(texture->textureId());
+    }
 
-	vao->bind();
-	{
-		if(triangulated_faces.isCreated())
-		{
-			glDrawElements(mode, static_cast<int>(m_number_of_faces * 3), GL_UNSIGNED_INT, 0);
-		}
-		else
-		{
-			glDrawArrays(GL_POINTS, 0, static_cast<int>(m_number_of_vertices));
-		}
-	}
-	vao->release();
+    vao->bind();
+    {
+        if(triangulated_faces.isCreated())
+        {
+            gl.glDrawElements(mode, static_cast<int>(m_number_of_faces * 3), GL_UNSIGNED_INT, 0);
+        }
+        else
+        {
+            gl.glDrawArrays(GL_POINTS, 0, static_cast<int>(m_number_of_vertices));
+        }
+    }
+    vao->release();
 }
+
 
 // #endif // QGLMESH_INL
