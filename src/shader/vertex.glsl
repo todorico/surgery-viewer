@@ -1,24 +1,42 @@
-#version 130
+// [COMPATIBILITY CODE]
 
-#define highp
-#define mediump
-#define lowp
+// #ifdef GL_ES // Per variable precision GL(ES) compatibility
+//     #define MEDIUMP mediump
+//     #define HIGHP highp
+//     #define LOWP  lowp
+// #else
+//     #define MEDIUMP
+//     #define HIGHP
+//     #define LOWP
+// #endif
+
+#ifdef GL_ES // Global precision GL(ES) compatibility
+    precision mediump float;
+    precision mediump int;
+#endif
+
+#if __VERSION__ >= 130 // Version compatibility
+    #define attribute in
+    #define varying out
+#endif
+
+// [SHADER CODE]
 
 // vertex attributes
 
-attribute highp vec3 v_position;
-attribute highp vec3 v_normal;
-attribute highp vec4 v_color;
-attribute highp vec2 v_texcoord;
+attribute vec3 v_position;
+attribute vec3 v_normal;
+attribute vec4 v_color;
+attribute vec2 v_texcoord;
 
 // fragment attributes
 
-varying highp vec4 f_color;
-varying highp vec2 f_texcoord;
+varying vec4 f_color;
+varying vec2 f_texcoord;
 
 // uniform mat4 model;
 // uniform mat4 view;
-uniform highp mat4 MVP;
+uniform mat4 MVP;
 
 void main()
 {

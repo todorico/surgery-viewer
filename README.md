@@ -1,6 +1,6 @@
 # Surgery Viewer
 
-Viewer écrit en C++, utilisant CGAL5, Qt5 et LibQGLViewer pour optimiser la visualisation de maillages surfaciques multi-couches provenant de dissections chirurgicales.
+Viewer écrit en C++, utilisant Assimp, CGAL5, Qt5, pour optimiser la visualisation et le traitement de maillages surfaciques multi-couches provenant de dissections chirurgicales.
 
 ## Dépendances
 
@@ -23,50 +23,75 @@ Le viewer utilise quant à lui Qt5 pour l'affichage fênétré et Assimp pour l'
 - Qt5
 - Assimp
 
-Sur les systèmes du type Debian / Ubuntu les dépendances peuvent être installer avec la commande ci-dessous.
+La majorité des dépendances sont installés durant la configuration du projet avec CMake cependant CGAL et Qt5 doivent être installer manuellement par l'utilisateur.
+
+## Dépandances manuelles (Linux)
 
 ```sh
-# Si tout vas bien
-sudo apt-get install libcgal-qt5-dev libassimp-dev
+# Installation des bibliothèques et programmes de build
+sudo apt-get install libcgal-qt5-dev build-essential cmake python3-pip  # avec git et le compilateur de votre choix (gcc, clang, ...)
+# Installation de conan un gestionnaire de paquets c++
+sudo pip3 install conan
 ```
 
-```sh
-# Si tout vas mal
-sudo apt-get install libcgal-qt5-dev 'libqt5*-dev' libboost-dev libgmp-dev libmpfr-dev libeigen3-dev libassimp-dev
-```
-
-## Compilation
+## Build (Linux)
 
 ```sh
-# 1. clone surgery-viewer repository
-
+# 1. clonez le repertoire surgery-viewer
 git clone https://github.com/todorico/surgery-viewer.git
 
-# 2. create and move to build directory
+# 2. creez puis déplacez vous dans le repertoire build
+mkdir surgery-viewer/build && cd surgery-viewer/build
 
-mkdir surgery-viewer/build 
+# 3. compilez le projet
+cmake .. -DCMAKE_BUILD_TYPE=Release && make
+```
+
+## Dépandances manuelles (Windows)
+
+Installez les version 64bit des bibliothèques et pour Qt installer la version compatible avec votre compilateur (MinGW ici)
+
+- Installeur CGAL-5.0.2 sur Github : [https://github.com/CGAL/cgal/releases/download/releases%2FCGAL-5.0.2/CGAL-5.0.2-Setup.exe](https://github.com/CGAL/cgal/releases/download/releases%2FCGAL-5.0.2/CGAL-5.0.2-Setup.exe)
+- Installeur Qt5 open source offline : [http://download.qt.io/official_releases/qt/5.12/5.12.9/qt-opensource-windows-x86-5.12.9.exe](http://download.qt.io/official_releases/qt/5.12/5.12.9/qt-opensource-windows-x86-5.12.9.exe)
+
+Pour eviter d'installer les programmes suivants sur windows je recommande l'utilisation d'un gestionnaire de package (chocolatey). Autrement les programmes devronts être installés manuellement.
+
+1. Ouvrir PowerShell.exe en tant qu'administrateur
+2. Executez la commande suivante pour installer chocolatey
+
+```sh
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+```
+
+3. Fermez puis ré-ouvrez le terminal en tant qu'administrateur
+
+```sh
+choco install -y git
+choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+choco install -y mingw
+choco install -y make
+choco install -y conan
+```
+
+Tout les programmes necessaires sont désormais installés.
+
+## Build (Windows)
+
+Ouvrez PowerShell (en tant qu'utilisateur) et déplacez vous dans le dossier ou vous voulez installer surgery-viewer
+
+```sh
+# 1. clonez le repertoire surgery-viewer
+git clone https://github.com/todorico/surgery-viewer.git
+
+# 2. creez puis déplacez vous dans le repertoire build
+mkdir surgery-viewer/build
 cd surgery-viewer/build
 
-# 3. build project
+# ATTENTION! : Sur windows cmake à du mal à reperer ou les bibliothèques (CGAL et Qt5) se trouvent.
+#              Ont peux donc spécifier des chemin manuellement comme avec la commande ci-dessous pour résoudre ce problème.
+#              Pour Qt5 il faut faire attention a utiliser la bibliothèque adapté au compilateur utilisé (MinGW dans notre cas).
 
-cmake ..
+# 3. compilez le projet
+cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCGAL_DIR="C:/dev/CGAL-5.0.2" -DQt5_DIR="C:/dev/Qt/5.15.0/mingw81_64/lib/cmake/Qt5"
 make
-```
-
-## Programmes
-
-```
-Usage: view (<input-file> | --from=<format>) : Utilitaire permettant de visualiser des objets géométriques.
-
-Usage: prop (<input-file> | --from=<format>) : Utilitaire permettant d'afficher et modifier les propriétés d'un objet géométrique.
-
-Usage: match <threshold> <input-file>... : Utilitaire permettant de produire un super-maillage contenant seulement les parties suffisament différentes provenants de plusieurs maillage d'entrés.
-
-Usage: project <input-file1> <input-file2> : Utilitaire permettant de produire un maillage étant la projection du 1er maillage sur le 2eme.
-
-Usage: rotate (<input-file> | --from=<input-format>) (<output-file> | --to=<output-format>) [options] : Utilitaire permettant d'orienté un maillage
-
-Usage: translate (<input-file> | --from=<input-format>) (<output-file> | --to=<output-format>) [options] : Utilitaire permettant de translater un maillage
-
-Usage: manip (<input-file> | --from=<input-format>) (<output-file> | --to=<output-format>) [options] : Utilitaire permettant de manipuler les attributs d'un maillage (couleur, normals, etc...)
 ```

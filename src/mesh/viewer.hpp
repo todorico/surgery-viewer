@@ -13,6 +13,7 @@ class MeshViewer : public CGAL::QGLViewer
   public:
 	std::vector<QGLMesh> meshes;
 
+	// MeshViewer();
 	virtual void add(const Mesh_data& data);
 
   protected:
