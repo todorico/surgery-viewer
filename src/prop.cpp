@@ -6,7 +6,7 @@
 
 // PROJECT
 #include "docopt/docopt.h"
-#include "mesh/conversion.hpp"
+#include "mesh/import.hpp"
 
 static const char USAGE[] =
 	R"(List geometrical properties from mesh.
@@ -27,7 +27,14 @@ int main(int argc, char const* argv[])
 
 	std::clog << "[STATUS] reading data from " << filename << "...\n";
 
-	Surface_mesh mesh = to_surface_mesh(load_mesh_data(filename));
+	//  Importing scene data from file
+	auto scene = import_scene(filename);
+	print_scene_status(scene.get());
+
+	//  Importing mesh data from scene
+	auto mesh_data_index = find_mesh_index(scene.get());
+	auto mesh			 = make_surface_mesh(scene->mMeshes[mesh_data_index]);
+
 	CGAL::Polygon_mesh_processing::stitch_borders(mesh);
 
 	if(mesh.is_empty())
@@ -53,24 +60,6 @@ int main(int argc, char const* argv[])
 
 	for(auto p : mesh.properties<Surface_mesh::Face_index>())
 		std::cout << p << '\n';
-
-	// v:color
-
-	// for(auto v : mesh.vertices())
-	// {
-	// 	Surface_mesh::Property_map<Surface_mesh::Vertex_index, CGAL::Color> color;
-	// 	bool exist = false;
-
-	// 	std::tie(color, exist) = mesh.property_map<Surface_mesh::Vertex_index,
-	// CGAL::Color>("v:color"); 	if(exist) 		std::cerr << color[v] << '\n';
-	// }
-
-	// Surface_mesh::Face_range face_range = mesh.faces;
-
-	// for(auto face : mesh.faces())
-	// {
-	// 	face.
-	// }
 
 	return EXIT_SUCCESS;
 }

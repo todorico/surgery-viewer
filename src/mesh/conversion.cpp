@@ -15,7 +15,7 @@ Surface_mesh to_surface_mesh(const Mesh_data& mesh_data)
 
 	using Vector_3 = Kernel::Vector_3;
 	using Vector_2 = Kernel::Vector_2;
-	using Color	   = CGAL::Color;
+	using Color	   = std::array<float, 4>;
 
 	Surface_mesh mesh;
 
@@ -42,7 +42,8 @@ Surface_mesh to_surface_mesh(const Mesh_data& mesh_data)
 	}
 	else
 	{
-		std::clog << "[STATUS] to_surface_mesh : data contains no vertex normals\n";
+		std::clog
+			<< "[STATUS] to_surface_mesh : data contains no vertex normals\n";
 	}
 
 	if(mesh_data.colors.has_value())
@@ -54,21 +55,20 @@ Surface_mesh to_surface_mesh(const Mesh_data& mesh_data)
 		{
 			auto color	   = (*mesh_data.colors)[i];
 			Vertex_index v = static_cast<Vertex_index>(i);
-			color_map[v]   = {static_cast<unsigned char>(color[0] * 255.0f),
-							  static_cast<unsigned char>(color[1] * 255.0f),
-							  static_cast<unsigned char>(color[2] * 255.0f),
-							  static_cast<unsigned char>(color[3] * 255.0f)};
+			color_map[v]   = {color[0], color[1], color[2], color[3]};
 		}
 	}
 	else
 	{
-		std::clog << "[STATUS] to_surface_mesh : data contains no vertex colors\n";
+		std::clog
+			<< "[STATUS] to_surface_mesh : data contains no vertex colors\n";
 	}
 
 	if(mesh_data.texcoords.has_value())
 	{
 		auto [texcoord_map, texcoord_map_created] =
-			mesh.template add_property_map<Vertex_index, Vector_2>("v:texcoord");
+			mesh.template add_property_map<Vertex_index, Vector_2>(
+				"v:texcoord");
 
 		for(size_type i = 0; i < mesh_data.texcoords->size(); ++i)
 		{
@@ -86,9 +86,12 @@ Surface_mesh to_surface_mesh(const Mesh_data& mesh_data)
 	{
 		for(size_type i = 0; i < mesh_data.triangulated_faces->size(); ++i)
 		{
-			Vertex_index a = static_cast<Vertex_index>((*mesh_data.triangulated_faces)[i][0]);
-			Vertex_index b = static_cast<Vertex_index>((*mesh_data.triangulated_faces)[i][1]);
-			Vertex_index c = static_cast<Vertex_index>((*mesh_data.triangulated_faces)[i][2]);
+			Vertex_index a = static_cast<Vertex_index>(
+				(*mesh_data.triangulated_faces)[i][0]);
+			Vertex_index b = static_cast<Vertex_index>(
+				(*mesh_data.triangulated_faces)[i][1]);
+			Vertex_index c = static_cast<Vertex_index>(
+				(*mesh_data.triangulated_faces)[i][2]);
 
 			mesh.add_face(a, b, c);
 		}
@@ -101,14 +104,15 @@ Surface_mesh to_surface_mesh(const Mesh_data& mesh_data)
 	return mesh;
 }
 
-Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> texture_path)
+Mesh_data to_mesh_data(const Surface_mesh& mesh,
+					   const std::string& texture_path)
 {
 	using Vertex_index = Surface_mesh::Vertex_index;
 	using size_type	   = Surface_mesh::size_type;
 
 	using Vector_3 = Kernel::Vector_3;
 	using Vector_2 = Kernel::Vector_2;
-	using Color	   = CGAL::Color;
+	using Color	   = std::array<float, 4>;
 
 	if(mesh.number_of_vertices() == 0)
 	{
@@ -124,16 +128,19 @@ Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> text
 	{
 		size_type i = 0;
 
-		positions.emplace(std::vector<Mesh_data::vec_3f>(mesh.number_of_vertices()));
+		positions.emplace(
+			std::vector<Mesh_data::vec_3f>(mesh.number_of_vertices()));
 
 		for(auto v : mesh.vertices())
 		{
 			auto position	= mesh.point(v);
-			(*positions)[i] = {static_cast<float>(position[0]), static_cast<float>(position[1]),
+			(*positions)[i] = {static_cast<float>(position[0]),
+							   static_cast<float>(position[1]),
 							   static_cast<float>(position[2])};
 			indice_map[v]	= i;
 			++i;
-			// 	std::cerr << vertices[i].x << ", " << vertices[i].y << ", " << vertices[i].z <<
+			// 	std::cerr << vertices[i].x << ", " << vertices[i].y << ", " <<
+			// vertices[i].z <<
 			// '\n';
 		}
 	}
@@ -147,12 +154,14 @@ Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> text
 	{
 		size_type i = 0;
 
-		normals.emplace(std::vector<Mesh_data::vec_3f>(mesh.number_of_vertices()));
+		normals.emplace(
+			std::vector<Mesh_data::vec_3f>(mesh.number_of_vertices()));
 
 		for(auto v : mesh.vertices())
 		{
 			auto normal	  = normal_map[v];
-			(*normals)[i] = {static_cast<float>(normal[0]), static_cast<float>(normal[1]),
+			(*normals)[i] = {static_cast<float>(normal[0]),
+							 static_cast<float>(normal[1]),
 							 static_cast<float>(normal[2])};
 			++i;
 		}
@@ -164,19 +173,20 @@ Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> text
 
 	std::optional<std::vector<Mesh_data::vec_4f>> colors;
 
-	auto [color_map, color_map_exist] = mesh.template property_map<Vertex_index, Color>("v:color");
+	auto [color_map, color_map_exist] =
+		mesh.template property_map<Vertex_index, Color>("v:color");
 
 	if(color_map_exist)
 	{
 		size_type i = 0;
 
-		colors.emplace(std::vector<Mesh_data::vec_4f>(mesh.number_of_vertices()));
+		colors.emplace(
+			std::vector<Mesh_data::vec_4f>(mesh.number_of_vertices()));
 
 		for(auto v : mesh.vertices())
 		{
 			auto color	 = color_map[v];
-			(*colors)[i] = {color[0] / 255.0f, color[1] / 255.0f, color[2] / 255.0f,
-							color[3] / 255.0f};
+			(*colors)[i] = {color[0], color[1], color[2], color[3]};
 			++i;
 		}
 	}
@@ -194,12 +204,14 @@ Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> text
 	{
 		size_type i = 0;
 
-		texcoords.emplace(std::vector<Mesh_data::vec_2f>(mesh.number_of_vertices()));
+		texcoords.emplace(
+			std::vector<Mesh_data::vec_2f>(mesh.number_of_vertices()));
 
 		for(auto v : mesh.vertices())
 		{
 			auto texcoord	= texcoord_map[v];
-			(*texcoords)[i] = {static_cast<float>(texcoord[0]), static_cast<float>(texcoord[1])};
+			(*texcoords)[i] = {static_cast<float>(texcoord[0]),
+							   static_cast<float>(texcoord[1])};
 			++i;
 		}
 	}
@@ -214,11 +226,13 @@ Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> text
 	{
 		size_type f = 0;
 
-		triangulated_faces.emplace(std::vector<Mesh_data::vec_3u>(mesh.number_of_faces()));
+		triangulated_faces.emplace(
+			std::vector<Mesh_data::vec_3u>(mesh.number_of_faces()));
 
 		for(auto face : mesh.faces())
 		{
-			auto face_vertices = CGAL::vertices_around_face(mesh.halfedge(face), mesh);
+			auto face_vertices =
+				CGAL::vertices_around_face(mesh.halfedge(face), mesh);
 
 			if(face_vertices.size() != 3)
 			{
@@ -239,12 +253,21 @@ Mesh_data to_mesh_data(const Surface_mesh& mesh, std::optional<std::string> text
 		}
 	}
 
-	return Mesh_data{positions, normals, colors, texcoords, triangulated_faces, texture_path};
+	if(texture_path.empty())
+	{
+		return Mesh_data{positions,			 normals, colors, texcoords,
+						 triangulated_faces, {}};
+	}
+	else
+	{
+		return Mesh_data{positions,			 normals,	  colors, texcoords,
+						 triangulated_faces, texture_path};
+	}
 }
 
 Mesh_data to_mesh_data(const Surface_mesh& mesh)
 {
-	return to_mesh_data(mesh, {});
+	return to_mesh_data(mesh, "");
 }
 
 // #endif // MESH_CONVERT_INL

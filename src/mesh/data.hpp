@@ -8,10 +8,6 @@
 #include <string>
 #include <vector>
 
-// ASSIMP
-
-#include <assimp/scene.h>
-
 struct Mesh_data
 {
 	using vec_2f = std::array<float, 2>;
@@ -27,12 +23,5 @@ struct Mesh_data
 
 	std::optional<std::string> texture_path;
 };
-
-Mesh_data load_mesh_data(const std::string& filename);
-
-std::optional<Mesh_data> find_first_mesh_data(aiNode* node, const aiScene* scene);
-
-// Does not return full path of texture file but only the filename
-std::optional<std::string> find_first_material_texture_name(aiMaterial* mat);
 
 #endif // MESH_DATA_HPP

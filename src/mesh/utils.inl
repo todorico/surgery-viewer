@@ -19,18 +19,22 @@
 
 // COLOR
 
-CGAL::Color random_color()
+std::array<float, 4> random_color()
 {
 	std::random_device rd;
 	CGAL::Random random(rd());
-	return CGAL::get_random_color(random);
+	CGAL::Color color = CGAL::get_random_color(random);
+	return {color.r() / 255.0f, color.g() / 255.0f, color.b() / 255.0f,
+			color.a() / 255.0f};
 }
 
 template <class VertexRange>
-void set_mesh_color(Surface_mesh& mesh, const VertexRange& vertices, const CGAL::Color& color)
+void set_mesh_color(Surface_mesh& mesh, const VertexRange& vertices,
+					const std::array<float, 4>& color)
 {
 	auto [color_map, created] =
-		mesh.add_property_map<Surface_mesh::Vertex_index, CGAL::Color>("v:color");
+		mesh.add_property_map<Surface_mesh::Vertex_index, std::array<float, 4>>(
+			"v:color");
 
 	// if(created)
 	// 	std::cerr << "color_map created\n";
@@ -43,7 +47,7 @@ void set_mesh_color(Surface_mesh& mesh, const VertexRange& vertices, const CGAL:
 	}
 }
 
-void set_mesh_color(Surface_mesh& mesh, const CGAL::Color& color)
+void set_mesh_color(Surface_mesh& mesh, const std::array<float, 4>& color)
 {
 	set_mesh_color(mesh, mesh.vertices(), color);
 }
@@ -67,8 +71,8 @@ Surface_mesh filtered(const Surface_mesh& mesh, const VertexRange& vertices)
 
 	for(auto vertex_index : vertices)
 	{
-		// Le sommet à potientiellement pu être effacer par un remove_face precedant
-		// On passe au prochain sommet pour eviter les erreurs
+		// Le sommet à potientiellement pu être effacer par un remove_face
+		// precedant On passe au prochain sommet pour eviter les erreurs
 		if(result.is_removed(vertex_index))
 			continue;
 
@@ -76,8 +80,8 @@ Surface_mesh filtered(const Surface_mesh& mesh, const VertexRange& vertices)
 
 		auto halfedges = CGAL::halfedges_around_target(vertex_index, result);
 
-		// Sans cette etapes remove_face plantera pendant l'iteration (on efface des
-		// halfedge en iterant de)
+		// Sans cette etapes remove_face plantera pendant l'iteration (on efface
+		// des halfedge en iterant de)
 		for(auto h : halfedges)
 		{
 			// if(!result.is_border(h))
@@ -86,8 +90,8 @@ Surface_mesh filtered(const Surface_mesh& mesh, const VertexRange& vertices)
 
 		for(auto h : low_dist_halfhedges)
 		{
-			// Il est necessaire de re-checker à chaque fois car remove_face change l'état
-			// du maillage
+			// Il est necessaire de re-checker à chaque fois car remove_face
+			// change l'état du maillage
 			if(!result.is_border(h))
 				CGAL::Euler::remove_face(h, result);
 		}
@@ -108,10 +112,11 @@ std::pair<Surface_mesh, Surface_mesh> divide(const Surface_mesh& mesh)
 
 // template <class P>
 // std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-// 	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-// 						  double min, double max)
+// 	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const
+// CGAL::Surface_mesh<P>& M2, 						  double min, double max)
 // {
-// 	using TreeTraits	  = CGAL::Search_traits_3<CGAL::Simple_cartesian<double>>;
+// 	using TreeTraits	  =
+// CGAL::Search_traits_3<CGAL::Simple_cartesian<double>>;
 // 	using Distance		  = CGAL::Euclidean_distance<TreeTraits>;
 // 	using Neighbor_search = CGAL::K_neighbor_search<TreeTraits, Distance>;
 // 	using Tree			  = typename Neighbor_search::Tree;
@@ -140,18 +145,19 @@ std::pair<Surface_mesh, Surface_mesh> divide(const Surface_mesh& mesh)
 
 // template <class P>
 // std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-// 	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-// 						  double max)
+// 	band_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const
+// CGAL::Surface_mesh<P>& M2, 						  double max)
 // {
 // 	return band_pass_filter_dist(M1, M2, 0, max);
 // }
 
 // template <class P>
 // std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-// 	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-// 						  double min, double max)
+// 	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const
+// CGAL::Surface_mesh<P>& M2, 						  double min, double max)
 // {
-// 	using TreeTraits	  = CGAL::Search_traits_3<CGAL::Simple_cartesian<double>>;
+// 	using TreeTraits	  =
+// CGAL::Search_traits_3<CGAL::Simple_cartesian<double>>;
 // 	using Distance		  = CGAL::Euclidean_distance<TreeTraits>;
 // 	using Neighbor_search = CGAL::K_neighbor_search<TreeTraits, Distance>;
 // 	using Tree			  = typename Neighbor_search::Tree;
@@ -179,31 +185,33 @@ std::pair<Surface_mesh, Surface_mesh> divide(const Surface_mesh& mesh)
 
 // template <class P>
 // std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-// 	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-// 						  double max)
+// 	band_stop_filter_dist(const CGAL::Surface_mesh<P>& M1, const
+// CGAL::Surface_mesh<P>& M2, 						  double max)
 // {
 // 	return band_stop_filter_dist(M1, M2, 0, max);
 // }
 
-// // Renvoie les indexes des points de M1 dont la distance la plus proche de M2 est inferieur a
+// // Renvoie les indexes des points de M1 dont la distance la plus proche de M2
+// est inferieur a
 // // threshold
 // template <class P>
 // std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-// 	low_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-// 						 double max)
+// 	low_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const
+// CGAL::Surface_mesh<P>& M2, 						 double max)
 // {
 // 	return band_pass_filter_dist(M1, M2, 0, max);
 // }
 
-// // Renvoie les indexes des points de M1 dont la distance la plus proche de M2 est superieure ou
-// egal
+// // Renvoie les indexes des points de M1 dont la distance la plus proche de M2
+// est superieure ou egal
 // // à threshold
 // template <class P>
 // std::vector<typename CGAL::Surface_mesh<P>::Vertex_index>
-// 	high_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const CGAL::Surface_mesh<P>& M2,
-// 						  double min)
+// 	high_pass_filter_dist(const CGAL::Surface_mesh<P>& M1, const
+// CGAL::Surface_mesh<P>& M2, 						  double min)
 // {
-// 	return band_pass_filter_dist(M1, M2, min, std::numeric_limits<double>::max());
+// 	return band_pass_filter_dist(M1, M2, min,
+// std::numeric_limits<double>::max());
 // }
 
 #endif // MESH_UTILS_INL

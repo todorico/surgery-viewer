@@ -4,6 +4,9 @@
 
 // PROJECT
 #include "docopt/docopt.h"
+#include "mesh/conversion.hpp"
+#include "mesh/import.hpp"
+#include "mesh/utils.hpp"
 #include "mesh/viewer.hpp"
 
 static const char USAGE[] =
@@ -32,13 +35,13 @@ int main(int argc, char** argv)
 
 	// QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
 
-/*	QSurfaceFormat format;
+	QSurfaceFormat format;
 	format.setRenderableType(QSurfaceFormat::OpenGL);
 	format.setProfile(QSurfaceFormat::CompatibilityProfile);
-	format.setVersion(3,0);
+	format.setVersion(3, 0);
 
 	QSurfaceFormat::setDefaultFormat(format);
-	*/
+
 	QApplication application(argc, argv);
 
 	MeshViewer viewer;
@@ -49,28 +52,43 @@ int main(int argc, char** argv)
 
 	for(size_t i = 0; i < input_files.size(); ++i)
 	{
-		Mesh_data data = load_mesh_data(input_files[i]);
+		//  Importing scene data from file
+		auto scene = import_scene(input_files[i]);
+		print_scene_status(scene.get());
+
+		//  Finding mesh data from scene
+		auto mesh_data_index = find_mesh_index(scene.get());
+		auto mesh_data		 = scene->mMeshes[mesh_data_index];
+
+		//  Finding texture data from mesh
+		auto mesh_material = scene->mMaterials[mesh_data->mMaterialIndex];
+		auto mesh_texture_path =
+			find_texture_path(input_files[i], mesh_material);
+
+		// Creating surface mesh
+		auto surface_mesh = make_surface_mesh(mesh_data);
 
 		if(colorize)
 		{
 			if(i == 0)
 			{
-				data.colors.emplace(std::vector<Mesh_data::vec_4f>(data.positions->size(),
-																   {0.9f, 0.0f, 0.0f, 1.0f}));
+				set_mesh_color(surface_mesh, {1.0f, 0.0f, 0.0f, 1.0f});
 			}
 			else if(i == 1)
 			{
-				data.colors.emplace(std::vector<Mesh_data::vec_4f>(data.positions->size(),
-																   {0.0f, 0.9f, 0.0f, 1.0f}));
+				set_mesh_color(surface_mesh, {0.0f, 1.0f, 0.0f, 1.0f});
 			}
 			else if(i == 2)
 			{
-				data.colors.emplace(std::vector<Mesh_data::vec_4f>(data.positions->size(),
-																   {0.0f, 0.0f, 0.9f, 1.0f}));
+				set_mesh_color(surface_mesh, {0.0f, 0.0f, 1.0f, 1.0f});
+			}
+			else
+			{
+				set_mesh_color(surface_mesh, random_color());
 			}
 		}
 
-		viewer.add(data);
+		viewer.add(to_mesh_data(surface_mesh, mesh_texture_path));
 	}
 
 	std::cerr << "[DEBUG] Mesh(es) loaded successfuly !\n";
