@@ -83,13 +83,13 @@ include(${CMAKE_BINARY_DIR}/conan.cmake)
 #             https://api.bintray.com/conan/bincrafters/public-conan)
 
 conan_cmake_run(REQUIRES
-          assimp/5.0.1
-          boost/1.72.0
-          docopt.cpp/0.6.2
-          eigen/3.3.7
-          glm/0.9.9.8
+                    assimp/5.0.1
+                    boost/1.72.0
+                    docopt.cpp/0.6.2
+                    eigen/3.3.7
+                    glm/0.9.9.8
                 OPTIONS
-                  boost:header_only=True
+                    boost:header_only=True
                 BASIC_SETUP
                 BUILD missing)
 

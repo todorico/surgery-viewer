@@ -6,6 +6,7 @@
 #include "mesh/conversion.hpp"
 #include "mesh/export.hpp"
 #include "mesh/import.hpp"
+#include "mesh/marking.hpp"
 #include "mesh/projection.hpp"
 #include "mesh/utils.hpp"
 #include "mesh/viewer.hpp"
@@ -15,64 +16,24 @@
 // #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
 #include <boost/range/join.hpp>
 
+// Attention il ne doit pas y avoir de mark = à none
 template <class VertexRange>
-bool is_not_close_face(const VertexRange& face_vertices,
-					   const SM_marking_map& marking_map)
+Vertex_mark triangle_mark(const VertexRange& triangle_vertices,
+						  const SM_marking_map& marking_map)
 {
-	for(auto v : face_vertices)
+	for(auto v : triangle_vertices)
 	{
 		if(marking_map[v] == Vertex_mark::Close)
 		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-template <class VertexRange>
-bool is_not_limit_face(const VertexRange& face_vertices,
-					   const SM_marking_map& marking_map)
-{
-	for(auto v : face_vertices)
-	{
-		if(marking_map[v] == Vertex_mark::Limit)
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-template <class VertexRange>
-bool is_limit_face(const VertexRange& face_vertices,
-				   const SM_marking_map& marking_map)
-{
-	bool found_distant = false;
-	bool found_close   = false;
-	bool found_limit   = false;
-
-	for(auto v : face_vertices)
-	{
-		if(marking_map[v] == Vertex_mark::Close)
-		{
-			found_close = true;
+			return Vertex_mark::Close;
 		}
 		else if(marking_map[v] == Vertex_mark::Distant)
 		{
-			found_distant = true;
-		}
-		else
-		{
-			found_limit = true;
+			return Vertex_mark::Distant;
 		}
 	}
 
-	// TODO: CHECK CONDITION
-
-	return (found_close && found_distant) ||
-		   (!found_close && !found_distant && found_limit);
+	return Vertex_mark::Limit;
 }
 
 template <class VertexRange>
@@ -117,10 +78,6 @@ SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2,
 			"v:mark", Vertex_mark::None);
 
 	auto M2_marking_map = get_marking_map(M2);
-	// std::vector<Surface_mesh::Vertex_index> test_vertices = {
-	// 	Surface_mesh::Vertex_index(110), Surface_mesh::Vertex_index(220),
-	// 	Surface_mesh::Vertex_index(440), Surface_mesh::Vertex_index(1200),
-	// 	Surface_mesh::Vertex_index(990)};
 
 	for(auto M1_v : M1.vertices())
 	{
@@ -132,54 +89,30 @@ SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2,
 		auto [M2_v, M2_dist_squared1] = *(search.begin());
 
 		auto faces = CGAL::halfedges_around_target(M2_v, M2);
-		// auto faces = boost::join(CGAL::halfedges_around_target(M2_v, M2),
-		// 						 CGAL::halfedges_around_face(M2.halfedge(M2_v),
-		// M2));
 
-		// std::cerr << "nb faces : " << faces.size() << '\n';
-		// std::cerr << "degree v : " << M2.degree(M2_v) << '\n';
-
-		bool found_distant_triangle	 = false;
-		bool found_matching_triangle = false;
-
-		for(auto f : faces)
+		for(auto ff : faces)
 		{
-			if(M2.is_border(f))
+			auto faces_around_face = CGAL::halfedges_around_target(ff, M2);
+
+			for(auto f : faces_around_face)
 			{
-				// std::cerr << "[WARNING] skipping border halfedge\n";
-				continue;
-			}
+				if(M2.is_border(f))
+				{
+					// std::cerr << "[WARNING] skipping border halfedge\n";
+					continue;
+				}
 
-			auto M2_triangle_vertices = CGAL::vertices_around_face(f, M2);
-			// auto M2_triangle_vertices = CGAL::vertices_around_face(f, M1);
-			// std::cerr << "nb points : " << M2_triangle_vertices.size() <<
-			// '\n';
-			// // std::cerr << "face size : " << M2_triangle_vertices.size() <<
-			// '\n';
+				auto M2_triangle_vertices = CGAL::vertices_around_face(f, M2);
 
-			found_matching_triangle = is_point_projected_on_triangle(
-				M2, M2_triangle_vertices, M1_point);
-
-			// std::cerr << "after vertices around face\n";
-			if(found_matching_triangle &&
-			   is_not_close_face(M2_triangle_vertices, M2_marking_map))
-			{
-				found_distant_triangle = true;
-				break;
+				if(is_point_projected_on_triangle(M2, M2_triangle_vertices,
+												  M1_point))
+				{
+					M1_marking_map[M1_v] =
+						triangle_mark(M2_triangle_vertices, M2_marking_map);
+					break;
+				}
 			}
 		}
-
-		if(!found_matching_triangle)
-		{
-			// std::cerr << "[WARNING] could not found matching triangle for
-			// vertex " << M1_v <<
-			// '\n';
-		}
-
-		if(found_distant_triangle)
-			M1_marking_map[M1_v] = Vertex_mark::Distant;
-		else
-			M1_marking_map[M1_v] = Vertex_mark::Close;
 	}
 
 	return M1_marking_map;
@@ -200,133 +133,6 @@ SM_marking_map mark_delimited_regions(Surface_mesh& M1, const Surface_mesh& M2)
 	return mark_limits(M1);
 }
 
-template <class VertexRange>
-Surface_mesh stick_vertices(const Surface_mesh& M1,
-							const VertexRange& M1_vertices,
-							const Surface_mesh& M2, const SM_kd_tree& M2_tree)
-{
-	Surface_mesh result = M1;
-
-	auto M1_marking_map = get_marking_map(result);
-	auto M2_marking_map = get_marking_map(M2);
-
-	for(auto M1_v : M1_vertices)
-	{
-		SM_kd_tree_search search(M2_tree, result.point(M1_v), 1, 0, true,
-								 M2_tree.traits().point_property_map());
-
-		auto [M2_v, M2_dist_squared] = *(search.begin());
-
-		result.point(M1_v)	 = M2_tree.traits().point_property_map()[M2_v];
-		M1_marking_map[M1_v] = M2_marking_map[M2_v];
-	}
-
-	return result;
-}
-
-template <class VertexRange>
-Surface_mesh
-	stick_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
-				   const Surface_mesh& M2, const VertexRange& M2_vertices)
-{
-	SM_kd_tree M2_tree(M2_vertices.begin(), M2_vertices.end(),
-					   SM_kd_tree_splitter(),
-					   SM_kd_tree_traits_adapter(M2.points()));
-
-	return stick_vertices(M1, M1_vertices, M2, M2_tree);
-}
-
-// renvoie les vertex de m2 qui ne sont pas coller aux vertex de M1
-
-template <class VertexRange>
-auto not_sticked_vertices(const Surface_mesh& M1,
-						  const VertexRange& M1_vertices,
-						  const SM_kd_tree& M2_tree)
-{
-	std::vector<Surface_mesh::Vertex_index> result;
-
-	std::copy_if(M1_vertices.begin(), M1_vertices.end(),
-				 std::back_inserter(result), [&](auto M1_v) {
-					 SM_kd_tree_search search(
-						 M2_tree, M1.point(M1_v), 1, 0, true,
-						 M2_tree.traits().point_property_map());
-
-					 auto [M2_v, M2_dist_squared] = *(search.begin());
-
-					 return M2_dist_squared > 0;
-				 });
-
-	return result;
-}
-
-template <class VertexRange>
-auto not_sticked_vertices(const Surface_mesh& M1,
-						  const VertexRange& M1_vertices,
-						  const Surface_mesh& M2,
-						  const VertexRange& M2_vertices)
-{
-	SM_kd_tree M2_tree(M2_vertices.begin(), M2_vertices.end(),
-					   SM_kd_tree_splitter(),
-					   SM_kd_tree_traits_adapter(M2.points()));
-
-	return not_sticked_vertices(M1, M1_vertices, M2_tree);
-}
-
-template <class VertexRange>
-auto closest_vertices(const Surface_mesh& M1, const VertexRange& M1_vertices,
-					  const SM_kd_tree& M2_tree)
-{
-	std::vector<Surface_mesh::Vertex_index> result;
-	result.reserve(M1_vertices.size());
-
-	for(auto M1_v : M1_vertices)
-	{
-		SM_kd_tree_search search(M2_tree, M1.point(M1_v), 1, 0, true,
-								 M2_tree.traits().point_property_map());
-
-		result.push_back(search.begin()->first);
-	}
-
-	return result;
-}
-
-template <class VertexRange1, class VertexRange2>
-auto closest_vertices(const Surface_mesh& M1, const VertexRange1& M1_vertices,
-					  const Surface_mesh& M2, const VertexRange2& M2_vertices)
-{
-	SM_kd_tree M2_tree(M2_vertices.begin(), M2_vertices.end(),
-					   SM_kd_tree_splitter(),
-					   SM_kd_tree_traits_adapter(M2.points()));
-
-	return closest_vertices(M1, M1_vertices, M2_tree);
-}
-
-Surface_mesh fill_holes(const Surface_mesh& M1, const Surface_mesh& M2)
-{
-	// point limites de M2 qui ne sont pas collé a M1
-	auto M2_not_sticked_vertices =
-		not_sticked_vertices(M2, limit_vertices(M2), M1, distant_vertices(M1));
-
-	auto M1_closest_vertices_from_M2_not_sticked =
-		closest_vertices(M2, M2_not_sticked_vertices, M1, M1.vertices());
-
-	auto result = stick_vertices(M1, M1_closest_vertices_from_M2_not_sticked,
-								 M2, M2_not_sticked_vertices);
-
-	return result;
-	///
-
-	// auto M1_not_sticked_vertices =
-	// 	not_sticked_vertices(result, limit_vertices(result), M2,
-	// distant_vertices(M2));
-
-	// auto M2_closest_vertices_from_M1_not_sticked =
-	// 	closest_vertices(result, M1_not_sticked_vertices, M2, M2.vertices());
-
-	// return stick_vertices(result, M1_not_sticked_vertices, M2,
-	// 					  M2_closest_vertices_from_M1_not_sticked);
-}
-
 static const char USAGE[] =
 	R"(Create a new mesh by matching parts of multiple similars meshes.
 
@@ -335,6 +141,7 @@ static const char USAGE[] =
     Options:
       -c, --colorize                     Colorize geometrical objects by files.
       -e <dist>, --epsilon <dist>		 Reduce threshold to make transition.
+      -a, --export-all                   Export all meshes components
       --neighbors=<num>                  Numbers of neighbors to query during projection
       --iterations=<num>                 Numbers of iterations during projection
       -h --help                          Show this screen
@@ -349,6 +156,7 @@ int main(int argc, char const* argv[])
 	////// PROGRAM ARGUMENTS
 
 	double threshold = 0;
+	// double reproject_offest = thres
 
 	try
 	{
@@ -364,7 +172,8 @@ int main(int argc, char const* argv[])
 
 	////// PROGRAM OPTIONS
 
-	auto opt_colorize = args.at("--colorize").asBool();
+	auto opt_colorize	= args.at("--colorize").asBool();
+	auto opt_export_all = args.at("--export-all").asBool();
 
 	unsigned long iterations = 20;
 	auto opt_iterations		 = args.at("--iterations");
@@ -400,7 +209,7 @@ int main(int argc, char const* argv[])
 		}
 	}
 
-	double epsilon	 = 0;
+	double epsilon	 = threshold / 2.0;
 	auto opt_epsilon = args.at("--epsilon");
 
 	if(opt_epsilon)
@@ -452,25 +261,6 @@ int main(int argc, char const* argv[])
 			meshes[i] =
 				make_surface_mesh(scene_model->mMeshes[scene_mesh_index[i]]);
 
-			// //  Importing scene data from file
-			// auto scene = import_scene(input_files[i]);
-			// print_scene_status(scene.get());
-
-			// //  Finding mesh data from scene
-			// auto mesh_data_index = find_mesh_index(scene.get());
-			// auto mesh_data		 = scene->mMeshes[mesh_data_index];
-
-			// //  Finding texture data from mesh
-			// auto mesh_material =
-			// scene->mMaterials[mesh_data->mMaterialIndex]; auto
-			// mesh_texture_path = 	find_texture_path(input_files[i],
-			// mesh_material);
-
-			// // Creating surface mesh
-
-			// textures[i] = mesh_texture_path;
-			// meshes[i]	= make_surface_mesh(mesh_data);
-
 			// WARNING: force mesh to be geometricaly processable by
 			// removing duplicated halfedges
 			CGAL::Polygon_mesh_processing::stitch_borders(meshes[i]);
@@ -509,21 +299,21 @@ int main(int argc, char const* argv[])
 
 		////////// PROJECTION
 
-		std::cerr << "[CURRENT] total vertices: "
+		std::cerr << "[MESH_CURRENT] total vertices: "
 				  << current.number_of_vertices() << '\n';
 
-		std::cerr << "[CURRENT] Projecting...\n";
+		std::cerr << "[MESH_CURRENT] Projecting...\n";
 		current_projected = projection(current, next);
 
 		////////// NEXT MESH
 
-		std::cerr << "[NEXT] total vertices: " << next.number_of_vertices()
+		std::cerr << "[MESH_NEXT] total vertices: " << next.number_of_vertices()
 				  << '\n';
 
-		std::cerr << "[NEXT] Marking...\n";
+		std::cerr << "[MESH_NEXT] Marking...\n";
 		mark_delimited_regions(next, current, threshold);
 
-		std::cerr << "[CURRENT] Marking...\n";
+		std::cerr << "[MESH_CURRENT] Marking...\n";
 		mark_delimited_regions(current_projected, next);
 
 		if(opt_colorize)
@@ -536,11 +326,11 @@ int main(int argc, char const* argv[])
 
 		////////// STICK CURRENT MESH
 
-		std::cerr << "[CURRENT] filling holes...\n";
+		std::cerr << "[MESH_CURRENT] filling holes...\n";
 
 		////////// DIVIDE MESHES
 
-		std::cerr << "[NEXT] Dividing...\n";
+		std::cerr << "[MESH_NEXT] Dividing...\n";
 		std::tie(M2_close, M2_distant) = divide(next);
 		std::tie(M1_projected_close, M1_projected_distant) =
 			divide(current_projected);
@@ -556,64 +346,75 @@ int main(int argc, char const* argv[])
 		// reconstruction = M1_projected_close;
 		// reconstruction += M2_distant;
 
-		// M1_projected_close
-		{
-			auto export_mesh_data = make_ai_mesh(M1_projected_close);
+		std::cerr << "[STATUS] exporting...\n";
 
-			export_mesh_data->mMaterialIndex =
-				scene_model->mMeshes[scene_mesh_index[i - 1]]->mMaterialIndex;
-			scene_model->mMaterials[export_mesh_data->mMaterialIndex] =
-				materials[i - 1].release();
+		// // M1_projected_close
+		// {
+		// 	auto export_mesh_data = make_ai_mesh(M1_projected_close);
 
-			assign_scene_mesh(scene_model.get(), scene_mesh_index[i - 1],
-							  export_mesh_data.release());
+		// 	export_mesh_data->mMaterialIndex =
+		// 		scene_model->mMeshes[scene_mesh_index[i - 1]]->mMaterialIndex;
+		// 	scene_model->mMaterials[export_mesh_data->mMaterialIndex] =
+		// 		materials[i - 1].release();
 
-			export_scene("obj",
-						 "projected_close_" + std::to_string(i - 1) + ".obj",
-						 scene_model.get());
-		}
+		// 	assign_scene_mesh(scene_model.get(), scene_mesh_index[i - 1],
+		// 					  export_mesh_data.release());
 
-		// M2_distant
-		{
-			auto export_mesh_data = make_ai_mesh(M2_distant);
+		// 	export_scene("obj",
+		// 				 "M" + std::to_string(i - 1) + "_projected_close.obj",
+		// 				 scene_model.get());
+		// }
 
-			export_mesh_data->mMaterialIndex =
-				scene_model->mMeshes[scene_mesh_index[i]]->mMaterialIndex;
-			scene_model->mMaterials[export_mesh_data->mMaterialIndex] =
-				materials[i].release();
+		// // M2_distant
+		// {
+		// 	auto export_mesh_data = make_ai_mesh(M2_distant);
 
-			assign_scene_mesh(scene_model.get(), scene_mesh_index[i],
-							  export_mesh_data.release());
+		// 	export_mesh_data->mMaterialIndex =
+		// 		scene_model->mMeshes[scene_mesh_index[i]]->mMaterialIndex;
+		// 	scene_model->mMaterials[export_mesh_data->mMaterialIndex] =
+		// 		materials[i].release();
 
-			export_scene("obj", "distant_" + std::to_string(i) + ".obj",
-						 scene_model.get());
-		}
+		// 	assign_scene_mesh(scene_model.get(), scene_mesh_index[i],
+		// 					  export_mesh_data.release());
+
+		// 	export_scene("obj", "M" + std::to_string(i) + "_distant.obj",
+		// 				 scene_model.get());
+		// }
+
+		// if(opt_export_all)
+		// {
+		// {
+		// 	auto export_mesh_data = make_ai_mesh(M1_projected_distant);
+
+		// 	export_mesh_data->mMaterialIndex =
+		// 		scene_model->mMeshes[scene_mesh_index[i - 1]]->mMaterialIndex;
+		// 	scene_model->mMaterials[export_mesh_data->mMaterialIndex] =
+		// 		materials[i - 1].release();
+
+		// 	assign_scene_mesh(scene_model.get(), scene_mesh_index[i - 1],
+		// 					  export_mesh_data.release());
+
+		// 	export_scene("obj",
+		// 				 "M" + std::to_string(i - 1) + "_projected_distant.obj",
+		// 				 scene_model.get());
+		// }
+
+		// {
+		// 	auto export_mesh_data = make_ai_mesh(M2_close);
+
+		// 	export_mesh_data->mMaterialIndex =
+		// 		scene_model->mMeshes[scene_mesh_index[i]]->mMaterialIndex;
+		// 	scene_model->mMaterials[export_mesh_data->mMaterialIndex] =
+		// 		materials[i].release();
+
+		// 	assign_scene_mesh(scene_model.get(), scene_mesh_index[i],
+		// 					  export_mesh_data.release());
+
+		// 	export_scene("obj", "M" + std::to_string(i) + "_close.obj",
+		// 				 scene_model.get());
+		// }
+		// }
 	}
 
-	////////// MESH VISUALISATION
-
-	// std::cerr << "[STATUS] Allocating meshes on gpu...\n";
-
-	// int qargc			 = 1;
-	// const char* qargv[2] = {"surface_mesh_viewer", "\0"};
-
-	// QApplication application(qargc, const_cast<char**>(qargv));
-
-	// MeshViewer viewer;
-
-	// viewer.setWindowTitle("Surface_meshViewer");
-
-	// viewer.show(); // Create Opengl Context
-
-	// viewer.add(to_mesh_data(meshes[0], textures[0].value_or("")));
-	// viewer.add(to_mesh_data(meshes[1], textures[1].value_or("")));
-
-	// viewer.add(to_mesh_data(M1_projected_close, textures[0].value_or("")));
-	// viewer.add(to_mesh_data(M1_projected_distant, textures[0].value_or("")));
-
-	// viewer.add(to_mesh_data(M2_close, textures[1].value_or("")));
-	// viewer.add(to_mesh_data(M2_distant, textures[1].value_or("")));
-
-	// return application.exec();
 	return EXIT_SUCCESS;
 }

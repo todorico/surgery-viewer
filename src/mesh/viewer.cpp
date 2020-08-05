@@ -86,7 +86,7 @@ void MeshViewer::initShaders()
 	{
 		std::cerr << "[DEBUG] Vertex shader compilation...\n";
 		QOpenGLShader vshader(QOpenGLShader::Vertex);
-		if(!vshader.compileSourceFile(app_dir + "/shader/vertex.glsl"))
+		if(!vshader.compileSourceFile(app_dir + "/shader/vertex.vert"))
 		{
 			std::cerr << "[ERROR] compilation failure\n";
 			std::cerr << vshader.log().toStdString() << '\n';
@@ -96,7 +96,7 @@ void MeshViewer::initShaders()
 		std::cerr << "[DEBUG] Fragment shader compilation...\n";
 		QOpenGLShader fshader(QOpenGLShader::Fragment);
 		if(!fshader.compileSourceFile(app_dir +
-									  "/shader/fragment_color_only.glsl"))
+									  "/shader/fragment_color_only.frag"))
 		{
 			std::cerr << "[ERROR] compilation failure :\n";
 			std::cerr << fshader.log().toStdString() << '\n';
@@ -133,7 +133,7 @@ void MeshViewer::initShaders()
 	{
 		std::cerr << "[DEBUG] Vertex shader compilation...\n";
 		QOpenGLShader vshader(QOpenGLShader::Vertex);
-		if(!vshader.compileSourceFile(app_dir + "/shader/vertex.glsl"))
+		if(!vshader.compileSourceFile(app_dir + "/shader/vertex.vert"))
 		{
 			std::cerr << "[ERROR] compilation failure\n";
 			std::cerr << vshader.log().toStdString() << '\n';
@@ -143,7 +143,7 @@ void MeshViewer::initShaders()
 		std::cerr << "[DEBUG] Fragment shader compilation...\n";
 		QOpenGLShader fshader(QOpenGLShader::Fragment);
 		if(!fshader.compileSourceFile(app_dir +
-									  "/shader/fragment_texture_only.glsl"))
+									  "/shader/fragment_texture_only.frag"))
 		{
 			std::cerr << "[ERROR] compilation failure :\n";
 			std::cerr << fshader.log().toStdString() << '\n';
@@ -183,7 +183,7 @@ void MeshViewer::initShaders()
 	{
 		std::cerr << "[DEBUG] Vertex shader compilation...\n";
 		QOpenGLShader vshader(QOpenGLShader::Vertex);
-		if(!vshader.compileSourceFile(app_dir + "/shader/vertex.glsl"))
+		if(!vshader.compileSourceFile(app_dir + "/shader/vertex.vert"))
 		{
 			std::cerr << "[ERROR] compilation failure\n";
 			std::cerr << vshader.log().toStdString() << '\n';
@@ -193,7 +193,7 @@ void MeshViewer::initShaders()
 		std::cerr << "[DEBUG] Fragment shader compilation...\n";
 		QOpenGLShader fshader(QOpenGLShader::Fragment);
 		if(!fshader.compileSourceFile(
-			   app_dir + "/shader/fragment_color_and_texture.glsl"))
+			   app_dir + "/shader/fragment_color_and_texture.frag"))
 		{
 			std::cerr << "[ERROR] compilation failure :\n";
 			std::cerr << fshader.log().toStdString() << '\n';

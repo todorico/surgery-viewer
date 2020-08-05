@@ -1,3 +1,5 @@
+#version 140
+
 // [COMPATIBILITY CODE] /////////////////////////
 
 ////// [GLSL VERSIONS COMPATIBILITY]

@@ -39,3 +39,9 @@ CMakeSettings.json
 *.sublime-workspace
 *.vscode
 *.vs
+
+# Compilation database
+compile_commands.json
+
+# VS code
+.vscode

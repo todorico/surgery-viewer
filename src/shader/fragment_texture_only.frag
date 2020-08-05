@@ -1,3 +1,5 @@
+#version 140
+
 // [COMPATIBILITY CODE]
 
 ////// [GLSL VERSIONS COMPATIBILITY]
@@ -110,14 +112,7 @@ void main()
     vec3 halfway_direction = normalize(-light_direction_cameraspace + -camera_direction_cameraspace);
     vec3 specular = light_color * specular_strength * specular_value(halfway_direction, vertex_normal_cameraspace, 1.0);
 
-    if (f_color.x == 1.0 || f_color.y == 1.0 || f_color.z == 1.0)
-    {
-        CGL_FRAG_COLOR = mix(texture2D(f_texture, f_texcoord), f_color, vec4(0.5, 0.5, 0.5, 0.5)) * vec4(ambient + diffuse + specular, 1.0);
-    }
-    else
-    {
-        CGL_FRAG_COLOR = texture2D(f_texture, f_texcoord) * vec4(ambient + diffuse + specular, 1.0);
-    }
+    CGL_FRAG_COLOR = texture2D(f_texture, f_texcoord) * vec4(ambient + diffuse + specular, 1.0);
 }
 
 

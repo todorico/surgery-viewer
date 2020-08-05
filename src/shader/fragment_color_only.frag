@@ -1,3 +1,5 @@
+#version 140
+
 // [COMPATIBILITY CODE]
 
 ////// [GLSL VERSIONS COMPATIBILITY]
@@ -44,6 +46,12 @@ float specular_value(vec3 light_objet_reflection, vec3 object_view_direction, fl
     return pow(max(dot(light_objet_reflection, object_view_direction), 0.0), shininess);
 }
 
+
+// float specular_blinn_phong_value(vec3 halfway_light_view_direction, vec3 object_view_direction, , float shininess)
+// {
+//     vec3 halfwayDir = normalize(lightDir + viewDir);
+//     return pow(max(dot(light_objet_reflection, object_view_direction), 0.0), shininess);
+// }
 
 // (assert line x failed)
 // 
@@ -105,12 +113,10 @@ void main()
 
     // Phong specular
     // vec3 specular = light_color * specular_strength * specular_value(reflect(light_direction_cameraspace, vertex_normal_cameraspace), -camera_direction_cameraspace, 1.0);
-    
+
     // Blinn-Phong specular
     vec3 halfway_direction = normalize(-light_direction_cameraspace + -camera_direction_cameraspace);
     vec3 specular = light_color * specular_strength * specular_value(halfway_direction, vertex_normal_cameraspace, 1.0);
 
-    CGL_FRAG_COLOR = texture2D(f_texture, f_texcoord) * vec4(ambient + diffuse + specular, 1.0);
+    CGL_FRAG_COLOR = f_color * vec4(ambient + diffuse + specular, 1.0);
 }
-
-

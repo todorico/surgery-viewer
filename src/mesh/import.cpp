@@ -133,12 +133,19 @@ std::string find_texture_path(const std::string& filename,
 
 	if(!texture_name.empty())
 	{
-		std::string texture_directory =
-			filename.substr(0, filename.find_last_of("/\\"));
-
-		// Add full path to texture name
-
-		texture_path = texture_directory + '/' + texture_name;
+		auto n = filename.find_last_of("/\\");
+		
+		// did not found pattern
+		if (n == std::string::npos)
+		{
+			texture_path = texture_name;
+		}
+		else
+		{
+			std::string texture_directory = filename.substr(0, n);
+			
+			texture_path = texture_directory + '/' + texture_name;
+		}
 	}
 
 	return texture_path;
