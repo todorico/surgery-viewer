@@ -3,11 +3,6 @@
 
 #include "viewer.hpp"
 
-// GLM
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 // QT5
 
 #include <QMessageBox>
@@ -20,15 +15,15 @@
 
 // CGAL::qglviewer::Vec bb_min(std::numeric_limits<qreal>::max(),
 
-glm::vec3 bb_min(std::numeric_limits<float>::max(),
-				 std::numeric_limits<float>::max(),
-				 std::numeric_limits<float>::max());
-glm::vec3 bb_max(std::numeric_limits<float>::min(),
+Mesh_data::vec_3f bb_min{std::numeric_limits<float>::max(),
+				std::numeric_limits<float>::max(),
+				std::numeric_limits<float>::max()};
+Mesh_data::vec_3f bb_max{std::numeric_limits<float>::min(),
 				 std::numeric_limits<float>::min(),
-				 std::numeric_limits<float>::min());
+				 std::numeric_limits<float>::min()};
 
 /*MeshViewer::MeshViewer()
-{
+{>
 
 
 	defaultConstructor();
@@ -289,19 +284,21 @@ void MeshViewer::add(const Mesh_data& md)
 
 	for(unsigned int i = 0; i < md.positions->size(); i++)
 	{
-		auto position = glm::vec3((*md.positions)[i][0], (*md.positions)[i][1],
-								  (*md.positions)[i][2]);
+		Mesh_data::vec_3f position((*md.positions)[i]);
+		// std::CGAL::qglviewer::Vec position(static_cast<qreal>((*md.positions)[i][0]), static_cast<qreal>((*md.positions)[i][1]),
+								//   static_cast<qreal>((*md.positions)[i][2]));
 
-		bb_min = glm::min(bb_min, position);
-		bb_max = glm::max(bb_max, position);
+		
+		bb_min = bb_min < position ? bb_min : position;
+		bb_max = bb_max > position ? bb_max : position;
 	}
 
-	CGAL::qglviewer::Vec min(static_cast<qreal>(bb_min.x),
-							 static_cast<qreal>(bb_min.y),
-							 static_cast<qreal>(bb_min.z));
-	CGAL::qglviewer::Vec max(static_cast<qreal>(bb_max.x),
-							 static_cast<qreal>(bb_max.y),
-							 static_cast<qreal>(bb_max.z));
+	CGAL::qglviewer::Vec min(static_cast<qreal>(bb_min[0]),
+							 static_cast<qreal>(bb_min[1]),
+							 static_cast<qreal>(bb_min[2]));
+	CGAL::qglviewer::Vec max(static_cast<qreal>(bb_max[0]),
+							 static_cast<qreal>(bb_max[1]),
+							 static_cast<qreal>(bb_max[2]));
 
 	camera()->lookAt((min + max) / 2.0);
 

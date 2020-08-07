@@ -16,6 +16,7 @@
 
 #include <assimp/scene.h>
 
+// Convertie Surface_mesh en aiMesh pour l'exportation 
 std::unique_ptr<aiMesh> make_ai_mesh(const Surface_mesh& surface_mesh);
 
 void assign_scene_mesh(aiScene* scene, unsigned int scene_mesh_index,

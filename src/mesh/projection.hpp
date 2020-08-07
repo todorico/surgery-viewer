@@ -3,6 +3,7 @@
 
 #include "../instance/Surface_mesh_kd_tree.hpp"
 
+// Noyau utilisé pour changer les paramètre de la projection d'un maillage sur un autre.
 struct Weight_kernel
 {
 	enum class Type
@@ -33,8 +34,10 @@ struct Weight_kernel
 	double weight(double d, double neihboringSphereRadius) const;
 };
 
+// Normalize un vecteur pour que sa taille soit unitaire
 Kernel::Vector_3 normalized(const Kernel::Vector_3& v);
 
+// Projection APSS d'un point sur un ensemble de points avec des normales
 std::pair<Kernel::Point_3, Kernel::Vector_3>
 	APSS(const Kernel::Point_3& input_point, const SM_kd_tree& kd_tree,
 		 const Surface_mesh_normal_map& normals, const size_t nb_iterations = 20,
@@ -42,6 +45,7 @@ std::pair<Kernel::Point_3, Kernel::Vector_3>
 		 const Weight_kernel& weight_kernel = {Weight_kernel::Type::Gaussian,
 											   Weight_kernel::Mode::Adaptive, 0, 0});
 
+// Projection d'un maillage sur un autre (M1 est projeté sur M2)
 template <class VertexRange>
 Surface_mesh projection(const Surface_mesh& mesh, const VertexRange& vertices,
 						const SM_kd_tree& points, const Surface_mesh_normal_map& normals);

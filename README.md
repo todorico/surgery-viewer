@@ -10,6 +10,7 @@ Viewer écrit en C++, utilisant Assimp, CGAL5, Qt5, pour optimiser la visualisat
   - [Match](#match)
     - [Exécution](#ex%C3%A9cution)
     - [Résultat](#r%C3%A9sultat)
+    - [Examples](#examples)
   - [Prop](#prop)
     - [Exemples](#exemples)
     - [Exécution](#ex%C3%A9cution-1)
@@ -40,21 +41,51 @@ Create a new mesh by matching parts of multiple similars meshes.
     Usage: match [options] <threshold> <input-files>...
 
     Options:
-      -h, --help                          Show this screen
-      --version                           Show version
+      -c, --colorize                       Colorize geometrical objects by files.
+      -e <offset>, --epsilon <offest>	     Augment threshold to make transition regions.
+      -a, --export-all                     Export all meshes components
+      -h --help                            Show this screen
+      --version                            Show version
 ```
 
 #### Exécution
 
 ```sh
 # En supposant que l'utilisateur se trouve dans surgery-viewer/build
-./bin/match 0.5 maillage1.obj maillage2.obj
+./bin/match 1 ../data/decoupe/plan_02.obj ../data/decoupe/plan_03.obj
 ```
 #### Résultat
 
 Le résultat de l’exécution du programme est l'ensemble de maillages suivant :
 
-- 
+- M0_close.obj   : decoupage de M0 contenant les parties proches de M1
+- M0_distant.obj : découpage de M0 contenant les parties distantes de M2
+- M1_distant.obj : découpage de M1 adapté à la géométrie de M0 et distant de M0
+
+Si le programme est executé avec l'option '-a' ou '--export-all' des maillages en plus sont exportés
+
+- M1_close.obj        : découpage de M1 adapté à la géométrie de M0 et proche de M0
+- M1_proj_close.obj   : partie proche d'une projection de M1 sur M0
+- M1_proj_distant.obj : partie distante d'une projection de M1 sur M0
+
+#### Examples
+
+voici d'autres exemples d'executions
+
+```sh
+# l'option -c applique un code couleur sur nos maillages (visualisable avec le programme view)
+./bin/match -c 0.02 ../data/test/plan_1.ply ../data/decoupe/plan_2.ply
+./bin/view M0_close.obj M0_distant.obj M1_distant.obj # permet de voir les maillages principaux
+
+# l'option -e ajoute une zone de transition de 1 en plus du seuil de 1 sur les distances ce qui permettra de mieux adapter la géométrie de M2 sur M1 pour la reprojection
+./bin/match -e 1 1 ../data/decoupe/plan_02.obj ../data/decoupe/plan_03.obj
+./bin/view M0_close.obj M0_distant.obj M1_distant.obj # permet de voir les maillages principaux
+
+# l'option -a exportera tout les maillages
+./bin/match -a 1 ../data/decoupe/plan_02.obj ../data/decoupe/plan_03.obj
+./bin/view M0_close.obj M0_distant.obj M1_close.obj M1_distant.obj M1_proj_close.obj M1_proj_distant.obj # permet de voir tout maillages exportés
+
+```
 
 ### Prop
 
@@ -109,6 +140,8 @@ Ce programme ouvre un fenêtre de visualisation de maillages.
 # L'option -c applique un code couleur sur les maillages (M1:rouge, M2:vert, M3:bleu, ..., Mn:random)
 ./bin/view -c maillage1.obj maillage2.ply
 ```
+
+**ATTENTION** : si un maillage faire référence à une image/texture, cette image/texture devra être placé dans le même dossier que le maillage lu sinon le programme ne pourra pas afficher les maillage 
 
 #### Fonctionnalités
 

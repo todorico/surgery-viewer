@@ -39,8 +39,6 @@ class MeshViewer : public CGAL::QGLViewer
 	bool m_draw_points	  = false;
 
 	CGAL::qglviewer::Vec orig, dir, selectedPoint;
-	// CGAL::qglviewer::Vec bb_min(std::numeric_limits<qreal>::max(),
-	// std::numeric_limits<qreal>::max(), std::numeric_limits<qreal>::max()), bb_max;
 };
 
 // #include "viewer.inl"

@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+// Cette structure est utilisée par le viewer pour afficher les maillages
+// Il est possible de convertir Surface_mesh en Mesh_data grâce à 'to_mesh_data'
 struct Mesh_data
 {
 	using vec_2f = std::array<float, 2>;

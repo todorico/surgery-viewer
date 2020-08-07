@@ -16,7 +16,7 @@
 // #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
 #include <boost/range/join.hpp>
 
-// Attention il ne doit pas y avoir de mark = à none
+// Associe un triangle à une annotation (close/distant/limit)
 template <class VertexRange>
 Vertex_mark triangle_mark(const VertexRange& triangle_vertices,
                           const SM_marking_map& marking_map)
@@ -36,6 +36,7 @@ Vertex_mark triangle_mark(const VertexRange& triangle_vertices,
     return Vertex_mark::Limit;
 }
 
+// Vérifie si le point 'p' se projette sur les sommets de 'triangle_vertices'
 template <class VertexRange>
 bool is_point_projected_on_triangle(const Surface_mesh& mesh,
                                     const VertexRange& triangle_vertices,
@@ -70,7 +71,9 @@ bool is_point_projected_on_triangle(const Surface_mesh& mesh,
     return CGAL::do_intersect(perpendicular_line, triangle);
 }
 
-// Cette algorithme copy les mark de M2 (M1 doit d'abord etre projeté sur M2)
+// Cette algorithme copy les annotation de M2 sur M1
+// Precondition 1 : M1 doit d'abord etre projeté sur M2
+// Precondition 2 : M2 doit avoir un carte d'annotation associé (SM_marking_map)
 SM_marking_map mark_regions(Surface_mesh& M1, const Surface_mesh& M2,
                             const SM_kd_tree& M2_tree)
 {
@@ -200,6 +203,78 @@ aiReturn export_scene_data(Scene_data& scene_data, const std::string& filename)
     return export_scene(scene_data.extension, filename, scene_data.scene.get());
 }
 
+// Précondition : (dist_close >= 0 && dist_distant >= 0)
+double reprojection_coeff(double dist_close, double dist_distant)
+{
+    if(dist_close == 0 || (dist_close + dist_distant) == 0)
+        return 1;
+
+    return ((dist_close * dist_distant) / dist_close) /
+           (dist_close + dist_distant);
+}
+
+// Reprojette certains sommet en fonction de leurs distances par rapport au
+// point proches et distants du maillages
+template <class VertexRange>
+Surface_mesh reprojection(const Surface_mesh& M1, const VertexRange& M1_vertices,
+                  const Surface_mesh& M1_proj, const SM_kd_tree& close_tree,
+                  const SM_kd_tree& distant_tree)
+{
+    Surface_mesh result(M1);
+
+    for(auto M1_v : M1_vertices)
+    {
+        auto M1_point = result.point(M1_v);
+
+        SM_kd_tree_search search_close(
+            close_tree, M1_point, 1, 0, true,
+            close_tree.traits().point_property_map());
+
+        SM_kd_tree_search search_distant(
+            distant_tree, M1_point, 1, 0, true,
+            distant_tree.traits().point_property_map());
+
+        auto [close_v, close_dist_squared]     = *(search_close.begin());
+        auto [distant_v, distant_dist_squared] = *(search_distant.begin());
+
+        double k = reprojection_coeff(std::sqrt(close_dist_squared),
+                                      std::sqrt(distant_dist_squared));
+
+        auto M1_proj_point = M1_proj.point(M1_v);
+
+        Kernel::Vector_3 v = (M1_proj_point - M1_point) * k;
+
+        result.point(M1_v) = (M1_point + v);
+    }
+
+    return result;
+}
+
+template <class VertexRange>
+Surface_mesh reprojection(const Surface_mesh& M1, const VertexRange& M1_vertices,
+                  const Surface_mesh& M1_proj)
+{
+    auto close_limit_vertices =
+        marked_vertices(M1_proj, Vertex_mark::Limit, Vertex_mark::Close);
+    auto distant_limit_vertices =
+        marked_vertices(M1_proj, Vertex_mark::Limit, Vertex_mark::Distant);
+
+    SM_kd_tree close_tree(close_limit_vertices.begin(),
+                          close_limit_vertices.end(), SM_kd_tree_splitter(),
+                          SM_kd_tree_traits_adapter(M1.points()));
+
+    SM_kd_tree distant_tree(distant_limit_vertices.begin(),
+                            distant_limit_vertices.end(), SM_kd_tree_splitter(),
+                            SM_kd_tree_traits_adapter(M1.points()));
+
+    return reprojection(M1, M1_vertices, M1_proj, close_tree, distant_tree);
+}
+
+Surface_mesh reproject_transition(const Surface_mesh& M1, const Surface_mesh& M1_proj)
+{
+    return reprojection(M1, limit_vertices(M1_proj), M1_proj);
+}
+
 static const char USAGE[] =
     R"(Create a new mesh by matching parts of multiple similars meshes.
 
@@ -240,7 +315,7 @@ int main(int argc, char const* argv[])
     auto opt_colorize   = args.at("--colorize").asBool();
     auto opt_export_all = args.at("--export-all").asBool();
 
-    double epsilon   = threshold / 2.0;
+    double epsilon   = threshold;
     auto opt_epsilon = args.at("--epsilon");
 
     if(opt_epsilon)
@@ -312,19 +387,37 @@ int main(int argc, char const* argv[])
         std::cerr << "[NEXT_MESH_PROJECTED] Marking...\n";
         mark_delimited_regions(next_proj, curr_mesh);
 
+        std::cerr << "[NEXT_MESH] Partial reprojection...\n";
+        next_mesh = reproject_transition(next_mesh, next_proj); // adapte la géométrie de next pour s'adapter à curr
+
         ////////// LIMITS COLORIZATION
 
         if(opt_colorize)
         {
+            // Afficher sommets transitions/limit en jaune
             set_mesh_color(curr_mesh, limit_vertices(curr_mesh),
                            {1.0f, 1.0f, 0.0f, 1.0f});
             set_mesh_color(next_proj, limit_vertices(next_proj),
                            {1.0f, 1.0f, 0.0f, 1.0f});
+
+            // // Afficher sommets proche/limit en violet
+            // set_mesh_color(next_proj, next_close_limit_vertices,
+            //                {1.0f, 0.0f, 1.0f, 1.0f});
+
+            // // Afficher sommets distant/limit en vert/bleu
+            // set_mesh_color(next_proj, next_distant_limit_vertices,
+            //                {0.0f, 1.0f, 1.0f, 1.0f});
         }
 
         ////////// DIVISION
 
-        auto [curr_close, curr_distant] = divide(std::move(curr_mesh));
+        // Remove transition mark on curr_mesh
+        mark_limits_with(curr_mesh, Vertex_mark::Distant);
+        // Set limits on curr_mesh
+        mark_limits(curr_mesh);
+
+        auto [curr_close, curr_distant] = divide(curr_mesh);
+
         auto [next_proj_close, next_proj_distant] =
             divide(std::move(next_proj));
 
@@ -341,12 +434,19 @@ int main(int argc, char const* argv[])
         // sur plus de 2 maillages. Cependant il faudra d'abor boucher les
         // trous.
 
-        // glob_mesh = curr_dclose;
+        // glob_mesh = curr_close;
         // glob_mesh += next_distant;
+
+        // update_scene_mesh_data(glob_scene_data, glob_mesh);
+        // export_scene_data(glob_scene_data,
+        //                   "M" + std::to_string(i) +
+        //                   "_reconstruction.obj");
 
         ////////// EXPORT MESHES
 
         std::cerr << "[STATUS] exporting...\n";
+
+        // Elements permettant la reconstruction des étapes
 
         update_scene_mesh_data(glob_scene_data, curr_close);
         export_scene_data(glob_scene_data,
@@ -356,21 +456,26 @@ int main(int argc, char const* argv[])
         export_scene_data(glob_scene_data,
                           "M" + std::to_string(i - 1) + "_distant.obj");
 
-        update_scene_mesh_data(next_scene_data, next_close);
-        export_scene_data(next_scene_data,
-                          "M" + std::to_string(i) + "_close.obj");
-
         update_scene_mesh_data(next_scene_data, next_distant);
         export_scene_data(next_scene_data,
                           "M" + std::to_string(i) + "_distant.obj");
 
-        update_scene_mesh_data(next_scene_data, next_proj_close);
-        export_scene_data(next_scene_data,
-                          "M" + std::to_string(i) + "_proj_close.obj");
+        // Elements intermediares
 
-        update_scene_mesh_data(next_scene_data, next_proj_distant);
-        export_scene_data(next_scene_data,
-                          "M" + std::to_string(i) + "_proj_distant.obj");
+        if (opt_export_all)
+        {
+            update_scene_mesh_data(next_scene_data, next_close);
+            export_scene_data(next_scene_data,
+                            "M" + std::to_string(i) + "_close.obj");
+
+            update_scene_mesh_data(next_scene_data, next_proj_close);
+            export_scene_data(next_scene_data,
+                            "M" + std::to_string(i) + "_proj_close.obj");
+
+            update_scene_mesh_data(next_scene_data, next_proj_distant);
+            export_scene_data(next_scene_data,
+                            "M" + std::to_string(i) + "_proj_distant.obj");
+        }
     }
 
     return EXIT_SUCCESS;

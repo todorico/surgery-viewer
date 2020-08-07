@@ -15,6 +15,7 @@
 
 #include <memory>
 
+// Structure utilisé pour transmettre les données d'un maillage à OpenGL pour l'affichage
 class QGLMesh
 {
   public:
